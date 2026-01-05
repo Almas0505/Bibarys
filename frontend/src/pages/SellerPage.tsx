@@ -2,7 +2,7 @@
  * Seller Page - Seller Dashboard and Product Management
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ProductForm from '../components/seller/ProductForm';
@@ -18,22 +18,6 @@ export default function SellerPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProduct, setEditProduct] = useState<Product | null>(null);
 
-  // Fetch seller's products
-  useEffect(() => {
-    if (user?.id) {
-      loadSellerProducts();
-    }
-  }, [user?.id]);
-
-  const loadSellerProducts = async () => {
-    try {
-      await api.get('/api/v1/seller/my-products');
-      // Dispatch to store if needed
-    } catch (error) {
-      console.error('Error loading products:', error);
-    }
-  };
-
   const handleAddProduct = async (formData: FormData) => {
     try {
       const data = Object.fromEntries(formData.entries());
@@ -44,8 +28,7 @@ export default function SellerPage() {
         image_urls: JSON.parse(data.image_urls as string),
       });
       setShowAddModal(false);
-      loadSellerProducts();
-      alert('Товар успешно добавлен!');
+      alert('Товар успешно добавлен! Обновите страницу для просмотра изменений.');
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Ошибка при добавлении товара');
     }
@@ -63,8 +46,7 @@ export default function SellerPage() {
         image_urls: JSON.parse(data.image_urls as string),
       });
       setEditProduct(null);
-      loadSellerProducts();
-      alert('Товар успешно обновлен!');
+      alert('Товар успешно обновлен! Обновите страницу для просмотра изменений.');
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Ошибка при обновлении товара');
     }
@@ -77,8 +59,7 @@ export default function SellerPage() {
 
     try {
       await api.delete(`/api/v1/products/${productId}`);
-      loadSellerProducts();
-      alert('Товар успешно удален!');
+      alert('Товар успешно удален! Обновите страницу для просмотра изменений.');
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Ошибка при удалении товара');
     }
@@ -89,7 +70,7 @@ export default function SellerPage() {
       await api.patch(`/api/v1/products/${productId}/toggle-active`, {
         is_active: !isActive,
       });
-      loadSellerProducts();
+      alert('Статус изменен! Обновите страницу для просмотра изменений.');
     } catch (error) {
       alert('Ошибка при изменении статуса товара');
     }

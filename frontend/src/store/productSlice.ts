@@ -2,7 +2,7 @@
  * Product slice for Redux store
  */
 
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { productService } from '../services';
 import { Product, ProductFilter, PaginationParams } from '../types';
 
@@ -79,7 +79,7 @@ const productSlice = createSlice({
   name: 'product',
   initialState,
   reducers: {
-    setFilters: (state, action) => {
+    setFilters: (state, action: PayloadAction<ProductFilter>) => {
       state.filters = action.payload;
     },
     clearFilters: (state) => {

@@ -10,7 +10,7 @@ interface ProductFormProps {
   product?: {
     id?: number;
     name: string;
-    description: string;
+    description?: string;
     price: number;
     quantity: number;
     category: ProductCategory;
@@ -38,7 +38,7 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
     if (product) {
       setFormData({
         name: product.name,
-        description: product.description,
+        description: product.description || '',
         price: product.price,
         quantity: product.quantity,
         category: product.category,
@@ -204,9 +204,9 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
           onChange={(e) => setFormData({ ...formData, category: e.target.value as ProductCategory })}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
         >
-          {Object.entries(PRODUCT_CATEGORIES).map(([value, label]) => (
+          {Object.entries(PRODUCT_CATEGORIES).map(([value, category]) => (
             <option key={value} value={value}>
-              {label}
+              {category.label}
             </option>
           ))}
         </select>

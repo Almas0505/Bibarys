@@ -43,7 +43,7 @@ export default function ShopPage() {
   const handleFilterChange = () => {
     dispatch(
       setFilters({
-        category: localFilters.category || undefined,
+        category: localFilters.category as ProductCategory | undefined,
         search: localFilters.search || undefined,
         min_price: localFilters.min_price ? Number(localFilters.min_price) : undefined,
         max_price: localFilters.max_price ? Number(localFilters.max_price) : undefined,
@@ -139,7 +139,7 @@ export default function ShopPage() {
                 value={`${localFilters.sort_by}_${localFilters.sort_order}`}
                 onChange={(e) => {
                   const [sort_by, sort_order] = e.target.value.split('_');
-                  setLocalFilters({ ...localFilters, sort_by, sort_order });
+                  setLocalFilters({ ...localFilters, sort_by, sort_order: sort_order as 'asc' | 'desc' });
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               >

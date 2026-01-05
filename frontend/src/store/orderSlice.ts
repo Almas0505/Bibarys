@@ -33,9 +33,13 @@ const initialState: OrderState = {
 };
 
 // Async thunks
-export const fetchOrders = createAsyncThunk(
+export const fetchOrders = createAsyncThunk<
+  any,
+  PaginationParams | undefined,
+  { rejectValue: string }
+>(
   'order/fetchOrders',
-  async (pagination: PaginationParams | undefined, { rejectWithValue }) => {
+  async (pagination, { rejectWithValue }) => {
     try {
       const response = await orderService.getOrders(pagination);
       return response;
@@ -45,9 +49,13 @@ export const fetchOrders = createAsyncThunk(
   }
 );
 
-export const fetchOrder = createAsyncThunk(
+export const fetchOrder = createAsyncThunk<
+  any,
+  number,
+  { rejectValue: string }
+>(
   'order/fetchOrder',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const order = await orderService.getOrder(id);
       return order;
@@ -57,18 +65,19 @@ export const fetchOrder = createAsyncThunk(
   }
 );
 
-export const createOrder = createAsyncThunk(
+export const createOrder = createAsyncThunk<
+  any,
+  {
+    delivery_method: string;
+    delivery_address: string;
+    phone: string;
+    notes?: string;
+    payment_method: string;
+  },
+  { rejectValue: string }
+>(
   'order/createOrder',
-  async (
-    data: {
-      delivery_method: string;
-      delivery_address: string;
-      phone: string;
-      notes?: string;
-      payment_method: string;
-    },
-    { rejectWithValue }
-  ) => {
+  async (data, { rejectWithValue }) => {
     try {
       const order = await orderService.createOrder(data);
       return order;
@@ -78,9 +87,13 @@ export const createOrder = createAsyncThunk(
   }
 );
 
-export const cancelOrder = createAsyncThunk(
+export const cancelOrder = createAsyncThunk<
+  any,
+  number,
+  { rejectValue: string }
+>(
   'order/cancelOrder',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const order = await orderService.cancelOrder(id);
       return order;
@@ -95,10 +108,10 @@ const orderSlice = createSlice({
   name: 'order',
   initialState,
   reducers: {
-    clearCurrentOrder: (state) => {
+    clearCurrentOrder: (state: OrderState) => {
       state.currentOrder = null;
     },
-    clearError: (state) => {
+    clearError: (state: OrderState) => {
       state.error = null;
     },
   },

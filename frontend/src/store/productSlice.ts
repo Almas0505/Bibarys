@@ -35,12 +35,13 @@ const initialState: ProductState = {
 };
 
 // Async thunks
-export const fetchProducts = createAsyncThunk(
+export const fetchProducts = createAsyncThunk<
+  any,
+  { filters?: ProductFilter; pagination?: PaginationParams },
+  { rejectValue: string }
+>(
   'product/fetchProducts',
-  async (
-    params: { filters?: ProductFilter; pagination?: PaginationParams },
-    { rejectWithValue }
-  ) => {
+  async (params, { rejectWithValue }) => {
     try {
       const response = await productService.getProducts(params.filters, params.pagination);
       return response;
@@ -50,9 +51,13 @@ export const fetchProducts = createAsyncThunk(
   }
 );
 
-export const fetchProduct = createAsyncThunk(
+export const fetchProduct = createAsyncThunk<
+  any,
+  number,
+  { rejectValue: string }
+>(
   'product/fetchProduct',
-  async (id: number, { rejectWithValue }) => {
+  async (id, { rejectWithValue }) => {
     try {
       const product = await productService.getProduct(id);
       return product;
@@ -62,9 +67,13 @@ export const fetchProduct = createAsyncThunk(
   }
 );
 
-export const searchProducts = createAsyncThunk(
+export const searchProducts = createAsyncThunk<
+  any,
+  string,
+  { rejectValue: string }
+>(
   'product/searchProducts',
-  async (query: string, { rejectWithValue }) => {
+  async (query, { rejectWithValue }) => {
     try {
       const products = await productService.searchProducts(query);
       return products;
@@ -79,16 +88,16 @@ const productSlice = createSlice({
   name: 'product',
   initialState,
   reducers: {
-    setFilters: (state, action: PayloadAction<ProductFilter>) => {
+    setFilters: (state: ProductState, action: PayloadAction<ProductFilter>) => {
       state.filters = action.payload;
     },
-    clearFilters: (state) => {
+    clearFilters: (state: ProductState) => {
       state.filters = {};
     },
-    clearCurrentProduct: (state) => {
+    clearCurrentProduct: (state: ProductState) => {
       state.currentProduct = null;
     },
-    clearError: (state) => {
+    clearError: (state: ProductState) => {
       state.error = null;
     },
   },

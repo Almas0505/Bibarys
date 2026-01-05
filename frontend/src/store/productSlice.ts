@@ -4,7 +4,7 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { productService } from '../services';
-import { Product, ProductFilter, PaginationParams } from '../types';
+import { Product, ProductFilter, PaginationParams, PaginatedResponse } from '../types';
 
 interface ProductState {
   products: Product[];
@@ -36,7 +36,7 @@ const initialState: ProductState = {
 
 // Async thunks
 export const fetchProducts = createAsyncThunk<
-  any,
+  PaginatedResponse<Product>,
   { filters?: ProductFilter; pagination?: PaginationParams },
   { rejectValue: string }
 >(
@@ -52,7 +52,7 @@ export const fetchProducts = createAsyncThunk<
 );
 
 export const fetchProduct = createAsyncThunk<
-  any,
+  Product,
   number,
   { rejectValue: string }
 >(
@@ -68,7 +68,7 @@ export const fetchProduct = createAsyncThunk<
 );
 
 export const searchProducts = createAsyncThunk<
-  any,
+  Product[],
   string,
   { rejectValue: string }
 >(

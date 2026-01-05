@@ -4,7 +4,7 @@
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { orderService } from '../services';
-import { Order, PaginationParams } from '../types';
+import { Order, PaginationParams, PaginatedResponse } from '../types';
 
 interface OrderState {
   orders: Order[];
@@ -34,7 +34,7 @@ const initialState: OrderState = {
 
 // Async thunks
 export const fetchOrders = createAsyncThunk<
-  any,
+  PaginatedResponse<Order>,
   PaginationParams | undefined,
   { rejectValue: string }
 >(
@@ -50,7 +50,7 @@ export const fetchOrders = createAsyncThunk<
 );
 
 export const fetchOrder = createAsyncThunk<
-  any,
+  Order,
   number,
   { rejectValue: string }
 >(
@@ -66,7 +66,7 @@ export const fetchOrder = createAsyncThunk<
 );
 
 export const createOrder = createAsyncThunk<
-  any,
+  Order,
   {
     delivery_method: string;
     delivery_address: string;
@@ -88,7 +88,7 @@ export const createOrder = createAsyncThunk<
 );
 
 export const cancelOrder = createAsyncThunk<
-  any,
+  Order,
   number,
   { rejectValue: string }
 >(

@@ -1,0 +1,179 @@
+/**
+ * Order slice for Redux store
+ */
+
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { orderService } from '../services';
+import { Order, PaginationParams } from '../types';
+
+interface OrderState {
+  orders: Order[];
+  currentOrder: Order | null;
+  pagination: {
+    total: number;
+    page: number;
+    page_size: number;
+    total_pages: number;
+  };
+  isLoading: boolean;
+  error: string | null;
+}
+
+const initialState: OrderState = {
+  orders: [],
+  currentOrder: null,
+  pagination: {
+    total: 0,
+    page: 1,
+    page_size: 20,
+    total_pages: 0,
+  },
+  isLoading: false,
+  error: null,
+};
+
+// Async thunks
+export const fetchOrders = createAsyncThunk(
+  'order/fetchOrders',
+  async (pagination: PaginationParams | undefined, { rejectWithValue }) => {
+    try {
+      const response = await orderService.getOrders(pagination);
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || 'Failed to fetch orders');
+    }
+  }
+);
+
+export const fetchOrder = createAsyncThunk(
+  'order/fetchOrder',
+  async (id: number, { rejectWithValue }) => {
+    try {
+      const order = await orderService.getOrder(id);
+      return order;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || 'Failed to fetch order');
+    }
+  }
+);
+
+export const createOrder = createAsyncThunk(
+  'order/createOrder',
+  async (
+    data: {
+      delivery_method: string;
+      delivery_address: string;
+      phone: string;
+      notes?: string;
+      payment_method: string;
+    },
+    { rejectWithValue }
+  ) => {
+    try {
+      const order = await orderService.createOrder(data);
+      return order;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || 'Failed to create order');
+    }
+  }
+);
+
+export const cancelOrder = createAsyncThunk(
+  'order/cancelOrder',
+  async (id: number, { rejectWithValue }) => {
+    try {
+      const order = await orderService.cancelOrder(id);
+      return order;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || 'Failed to cancel order');
+    }
+  }
+);
+
+// Slice
+const orderSlice = createSlice({
+  name: 'order',
+  initialState,
+  reducers: {
+    clearCurrentOrder: (state) => {
+      state.currentOrder = null;
+    },
+    clearError: (state) => {
+      state.error = null;
+    },
+  },
+  extraReducers: (builder) => {
+    // Fetch orders
+    builder.addCase(fetchOrders.pending, (state) => {
+      state.isLoading = true;
+    });
+    builder.addCase(fetchOrders.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.orders = action.payload.items;
+      state.pagination = {
+        total: action.payload.total,
+        page: action.payload.page,
+        page_size: action.payload.page_size,
+        total_pages: action.payload.total_pages,
+      };
+      state.error = null;
+    });
+    builder.addCase(fetchOrders.rejected, (state, action) => {
+      state.isLoading = false;
+      state.error = action.payload as string;
+    });
+
+    // Fetch order
+    builder.addCase(fetchOrder.pending, (state) => {
+      state.isLoading = true;
+    });
+    builder.addCase(fetchOrder.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.currentOrder = action.payload;
+      state.error = null;
+    });
+    builder.addCase(fetchOrder.rejected, (state, action) => {
+      state.isLoading = false;
+      state.error = action.payload as string;
+    });
+
+    // Create order
+    builder.addCase(createOrder.pending, (state) => {
+      state.isLoading = true;
+    });
+    builder.addCase(createOrder.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.currentOrder = action.payload;
+      state.error = null;
+    });
+    builder.addCase(createOrder.rejected, (state, action) => {
+      state.isLoading = false;
+      state.error = action.payload as string;
+    });
+
+    // Cancel order
+    builder.addCase(cancelOrder.pending, (state) => {
+      state.isLoading = true;
+    });
+    builder.addCase(cancelOrder.fulfilled, (state, action) => {
+      state.isLoading = false;
+      // Update order in list if exists
+      const index = state.orders.findIndex(o => o.id === action.payload.id);
+      if (index !== -1) {
+        state.orders[index] = action.payload;
+      }
+      // Update current order if it's the same
+      if (state.currentOrder?.id === action.payload.id) {
+        state.currentOrder = action.payload;
+      }
+      state.error = null;
+    });
+    builder.addCase(cancelOrder.rejected, (state, action) => {
+      state.isLoading = false;
+      state.error = action.payload as string;
+    });
+  },
+});
+
+export const { clearCurrentOrder, clearError } = orderSlice.actions;
+export default orderSlice.reducer;

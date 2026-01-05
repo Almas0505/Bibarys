@@ -104,10 +104,10 @@ const orderSlice = createSlice({
   },
   extraReducers: (builder) => {
     // Fetch orders
-    builder.addCase(fetchOrders.pending, (state) => {
+    builder.addCase(fetchOrders.pending, (state: OrderState) => {
       state.isLoading = true;
     });
-    builder.addCase(fetchOrders.fulfilled, (state, action) => {
+    builder.addCase(fetchOrders.fulfilled, (state: OrderState, action) => {
       state.isLoading = false;
       state.orders = action.payload.items;
       state.pagination = {
@@ -118,47 +118,47 @@ const orderSlice = createSlice({
       };
       state.error = null;
     });
-    builder.addCase(fetchOrders.rejected, (state, action) => {
+    builder.addCase(fetchOrders.rejected, (state: OrderState, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
     });
 
     // Fetch order
-    builder.addCase(fetchOrder.pending, (state) => {
+    builder.addCase(fetchOrder.pending, (state: OrderState) => {
       state.isLoading = true;
     });
-    builder.addCase(fetchOrder.fulfilled, (state, action) => {
+    builder.addCase(fetchOrder.fulfilled, (state: OrderState, action) => {
       state.isLoading = false;
       state.currentOrder = action.payload;
       state.error = null;
     });
-    builder.addCase(fetchOrder.rejected, (state, action) => {
+    builder.addCase(fetchOrder.rejected, (state: OrderState, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
     });
 
     // Create order
-    builder.addCase(createOrder.pending, (state) => {
+    builder.addCase(createOrder.pending, (state: OrderState) => {
       state.isLoading = true;
     });
-    builder.addCase(createOrder.fulfilled, (state, action) => {
+    builder.addCase(createOrder.fulfilled, (state: OrderState, action) => {
       state.isLoading = false;
       state.currentOrder = action.payload;
       state.error = null;
     });
-    builder.addCase(createOrder.rejected, (state, action) => {
+    builder.addCase(createOrder.rejected, (state: OrderState, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
     });
 
     // Cancel order
-    builder.addCase(cancelOrder.pending, (state) => {
+    builder.addCase(cancelOrder.pending, (state: OrderState) => {
       state.isLoading = true;
     });
-    builder.addCase(cancelOrder.fulfilled, (state, action) => {
+    builder.addCase(cancelOrder.fulfilled, (state: OrderState, action) => {
       state.isLoading = false;
       // Update order in list if exists
-      const index = state.orders.findIndex(o => o.id === action.payload.id);
+      const index = state.orders.findIndex((o: Order) => o.id === action.payload.id);
       if (index !== -1) {
         state.orders[index] = action.payload;
       }
@@ -168,7 +168,7 @@ const orderSlice = createSlice({
       }
       state.error = null;
     });
-    builder.addCase(cancelOrder.rejected, (state, action) => {
+    builder.addCase(cancelOrder.rejected, (state: OrderState, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
     });

@@ -94,10 +94,10 @@ const productSlice = createSlice({
   },
   extraReducers: (builder) => {
     // Fetch products
-    builder.addCase(fetchProducts.pending, (state) => {
+    builder.addCase(fetchProducts.pending, (state: ProductState) => {
       state.isLoading = true;
     });
-    builder.addCase(fetchProducts.fulfilled, (state, action) => {
+    builder.addCase(fetchProducts.fulfilled, (state: ProductState, action) => {
       state.isLoading = false;
       state.products = action.payload.items;
       state.pagination = {
@@ -108,35 +108,35 @@ const productSlice = createSlice({
       };
       state.error = null;
     });
-    builder.addCase(fetchProducts.rejected, (state, action) => {
+    builder.addCase(fetchProducts.rejected, (state: ProductState, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
     });
 
     // Fetch product
-    builder.addCase(fetchProduct.pending, (state) => {
+    builder.addCase(fetchProduct.pending, (state: ProductState) => {
       state.isLoading = true;
     });
-    builder.addCase(fetchProduct.fulfilled, (state, action) => {
+    builder.addCase(fetchProduct.fulfilled, (state: ProductState, action) => {
       state.isLoading = false;
       state.currentProduct = action.payload;
       state.error = null;
     });
-    builder.addCase(fetchProduct.rejected, (state, action) => {
+    builder.addCase(fetchProduct.rejected, (state: ProductState, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
     });
 
     // Search products
-    builder.addCase(searchProducts.pending, (state) => {
+    builder.addCase(searchProducts.pending, (state: ProductState) => {
       state.isLoading = true;
     });
-    builder.addCase(searchProducts.fulfilled, (state, action) => {
+    builder.addCase(searchProducts.fulfilled, (state: ProductState, action) => {
       state.isLoading = false;
       state.products = action.payload;
       state.error = null;
     });
-    builder.addCase(searchProducts.rejected, (state, action) => {
+    builder.addCase(searchProducts.rejected, (state: ProductState, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
     });

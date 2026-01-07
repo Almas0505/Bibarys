@@ -28,6 +28,10 @@ def is_allowed_file(filename: str) -> bool:
 
 async def save_upload_file(file: UploadFile) -> str:
     """Save uploaded file and return filename."""
+    # Validate filename exists
+    if not file.filename:
+        raise ValueError("Filename is required")
+    
     # Validate extension
     if not is_allowed_file(file.filename):
         raise ValueError(f"File type not allowed. Allowed: {ALLOWED_EXTENSIONS}")

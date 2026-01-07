@@ -39,8 +39,8 @@ def register(request: Request, user_data: UserCreate, db: Session = Depends(get_
     # Send welcome email (don't fail registration if email fails)
     try:
         EmailService.send_welcome_email(user.email, user.first_name)
-    except:
-        pass
+    except Exception:
+        pass  # Email failures should not prevent registration
     
     return user
 

@@ -40,7 +40,8 @@ def register(request: Request, user_data: UserCreate, db: Session = Depends(get_
     try:
         EmailService.send_welcome_email(user.email, user.first_name)
     except Exception:
-        pass  # Email failures should not prevent registration
+        # Intentionally broad: email failures should never prevent registration
+        pass
     
     return user
 

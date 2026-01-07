@@ -95,7 +95,8 @@ def create_order(
             order.total_price
         )
     except Exception:
-        pass  # Don't fail order creation if email fails
+        # Intentionally broad: email failures should never prevent order creation
+        pass
     
     return order
 
@@ -125,7 +126,8 @@ def update_order_status(
             order.status.value
         )
     except Exception:
-        pass  # Don't fail status update if email fails
+        # Intentionally broad: email failures should never prevent status updates
+        pass
     
     return order
 

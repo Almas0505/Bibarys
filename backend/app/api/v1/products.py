@@ -91,24 +91,6 @@ def get_products(
     )
 
 
-@router.get("/{product_id}", response_model=ProductResponse)
-def get_product(product_id: int, db: Session = Depends(get_db)):
-    """
-    Get product by ID
-    
-    Increments view count
-    """
-    product = ProductService.get_product_by_id(db, product_id)
-    
-    if not product:
-        raise NotFoundException(detail="Product not found")
-    
-    # Increment view count
-    ProductService.increment_view_count(db, product_id)
-    
-    return product
-
-
 @router.get("/search", response_model=ProductListResponse)
 def search_products(
     q: str = Query(..., min_length=2, description="Search query"),
@@ -176,6 +158,24 @@ def search_products(
         page_size=limit,
         total_pages=total_pages
     )
+
+
+@router.get("/{product_id}", response_model=ProductResponse)
+def get_product(product_id: int, db: Session = Depends(get_db)):
+    """
+    Get product by ID
+    
+    Increments view count
+    """
+    product = ProductService.get_product_by_id(db, product_id)
+    
+    if not product:
+        raise NotFoundException(detail="Product not found")
+    
+    # Increment view count
+    ProductService.increment_view_count(db, product_id)
+    
+    return product
 
 
 @router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)

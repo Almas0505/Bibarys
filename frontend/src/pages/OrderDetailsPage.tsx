@@ -2,19 +2,27 @@
  * Order Details Page
  */
 
-import { useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { fetchOrder, cancelOrder } from '../store/orderSlice';
+import { addToCart } from '../store/cartSlice';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import Button from '../components/common/Button';
+import Modal from '../components/common/Modal';
+import { useToast } from '../components/common/ToastContainer';
 import { formatPrice, formatDateTime } from '../utils/helpers';
 import { ORDER_STATUSES } from '../utils/constants';
 import { OrderStatus } from '../types';
 
 export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { showToast } = useToast();
   const { currentOrder: order, isLoading } = useAppSelector((state) => state.order);
+  
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -23,8 +31,33 @@ export default function OrderDetailsPage() {
   }, [dispatch, id]);
 
   const handleCancelOrder = async () => {
-    if (order && confirm('Вы уверены, что хотите отменить заказ?')) {
-      await dispatch(cancelOrder(order.id));
+    if (order) {
+      try {
+        await dispatch(cancelOrder(order.id)).unwrap();
+        showToast('success', 'Заказ успешно отменён');
+        setShowCancelModal(false);
+      } catch (error: any) {
+        showToast('error', error.message || 'Ошибка при отмене заказа');
+      }
+    }
+  };
+
+  const handleRepeatOrder = async () => {
+    if (!order) return;
+    
+    try {
+      // Add all items from the order back to cart
+      for (const item of order.items) {
+        await dispatch(addToCart({ 
+          product_id: item.product_id, 
+          quantity: item.quantity 
+        })).unwrap();
+      }
+      
+      showToast('success', 'Товары добавлены в корзину');
+      navigate('/cart');
+    } catch (error: any) {
+      showToast('error', error.message || 'Ошибка при добавлении товаров');
     }
   };
 
@@ -45,6 +78,11 @@ export default function OrderDetailsPage() {
 
   const statusInfo = ORDER_STATUSES[order.status as keyof typeof ORDER_STATUSES];
   const canCancel = order.status === OrderStatus.PENDING || order.status === OrderStatus.PROCESSING;
+  
+  // Get all statuses up to current status
+  const allStatuses = ['pending', 'processing', 'shipped', 'delivered'];
+  const currentStatusIndex = allStatuses.indexOf(order.status);
+  const orderStatuses = allStatuses.slice(0, currentStatusIndex + 1);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -60,6 +98,46 @@ export default function OrderDetailsPage() {
           {statusInfo.label}
         </span>
       </div>
+
+      {/* Timeline */}
+      {order.status !== OrderStatus.CANCELLED && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-xl font-bold mb-6">Статус заказа</h2>
+          
+          <div className="flex items-center justify-between">
+            {allStatuses.map((status, idx) => {
+              const isActive = orderStatuses.includes(status);
+              const isCurrent = order.status === status;
+              
+              return (
+                <div key={status} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      isActive ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'
+                    } ${isCurrent ? 'ring-4 ring-green-200' : ''}`}>
+                      {isActive ? '✓' : idx + 1}
+                    </div>
+                    <span className="text-xs mt-2 text-center">
+                      {status === 'pending' && 'Ожидает'}
+                      {status === 'processing' && 'В обработке'}
+                      {status === 'shipped' && 'Отправлен'}
+                      {status === 'delivered' && 'Доставлен'}
+                    </span>
+                  </div>
+                  
+                  {idx < allStatuses.length - 1 && (
+                    <div className={`flex-1 h-1 mx-2 ${
+                      orderStatuses.includes(allStatuses[idx + 1]) 
+                        ? 'bg-green-500' 
+                        : 'bg-gray-300'
+                    }`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Order Items */}
@@ -124,6 +202,25 @@ export default function OrderDetailsPage() {
               )}
             </div>
           </div>
+          
+          {/* Action buttons */}
+          <div className="flex gap-4">
+            {canCancel && (
+              <Button variant="danger" onClick={() => setShowCancelModal(true)}>
+                Отменить заказ
+              </Button>
+            )}
+            
+            {order.status === OrderStatus.DELIVERED && (
+              <Button onClick={() => navigate(`/product/${order.items[0]?.product_id}?review=true`)}>
+                Оставить отзыв
+              </Button>
+            )}
+            
+            <Button variant="secondary" onClick={handleRepeatOrder}>
+              Повторить заказ
+            </Button>
+          </div>
         </div>
 
         {/* Order Summary */}
@@ -148,24 +245,32 @@ export default function OrderDetailsPage() {
               </div>
             </div>
 
-            {canCancel && (
-              <button
-                onClick={handleCancelOrder}
-                className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700"
-              >
-                Отменить заказ
-              </button>
-            )}
-
             <Link
               to="/orders"
-              className="block text-center text-primary-600 hover:underline mt-4"
+              className="block text-center text-primary-600 hover:underline"
             >
               Вернуться к заказам
             </Link>
           </div>
         </div>
       </div>
+      
+      {/* Cancel Order Modal */}
+      <Modal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        title="Отменить заказ?"
+      >
+        <p className="mb-4">Вы уверены, что хотите отменить этот заказ?</p>
+        <div className="flex gap-4 justify-end">
+          <Button variant="secondary" onClick={() => setShowCancelModal(false)}>
+            Нет
+          </Button>
+          <Button variant="danger" onClick={handleCancelOrder}>
+            Да, отменить
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

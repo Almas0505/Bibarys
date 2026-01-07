@@ -1,209 +1,482 @@
-/**
- * Checkout Page
- */
-
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppDispatch, useAppSelector } from '../hooks/redux';
+import { useAppSelector, useAppDispatch } from '../hooks/redux';
+import CheckoutStepper from '../components/checkout/CheckoutStepper';
+import OrderSummary from '../components/checkout/OrderSummary';
+import Input from '../components/common/Input';
+import Radio from '../components/common/Radio';
+import Button from '../components/common/Button';
+import { useToast } from '../components/common/ToastContainer';
 import { createOrder } from '../store/orderSlice';
-import { clearCart } from '../store/cartSlice';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import { formatPrice } from '../utils/helpers';
-import { DELIVERY_METHODS, PAYMENT_METHODS } from '../utils/constants';
+import { 
+  isValidEmail, 
+  isValidPhone, 
+  isValidCardNumber, 
+  isValidCardExpiry, 
+  isValidCardCVV,
+  isValidPostalCode 
+} from '../utils/validators';
+import { formatCardNumber, formatCardExpiry } from '../utils/formatters';
+
+interface CheckoutFormData {
+  // Step 1 - Address
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  postalCode: string;
+  saveToProfile: boolean;
+  
+  // Step 2 - Delivery
+  deliveryMethod: 'courier' | 'pickup' | 'mail';
+  
+  // Step 3 - Payment
+  paymentMethod: 'card' | 'cash' | 'wallet';
+  cardNumber: string;
+  cardExpiry: string;
+  cardCVV: string;
+  cardHolder: string;
+}
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { cart } = useAppSelector((state) => state.cart);
-  const { user } = useAppSelector((state) => state.auth);
-  const { isLoading } = useAppSelector((state) => state.order);
-
-  const [formData, setFormData] = useState({
-    delivery_method: 'standard',
-    delivery_address: '',
+  const { showToast } = useToast();
+  const { cart, isLoading: cartLoading } = useAppSelector(state => state.cart);
+  const { user } = useAppSelector(state => state.auth);
+  
+  const [currentStep, setCurrentStep] = useState(1);
+  const [formData, setFormData] = useState<CheckoutFormData>({
+    firstName: user?.first_name || '',
+    lastName: user?.last_name || '',
+    email: user?.email || '',
     phone: user?.phone || '',
-    notes: '',
-    payment_method: 'card',
+    address: '',
+    city: '',
+    postalCode: '',
+    saveToProfile: false,
+    deliveryMethod: 'courier',
+    paymentMethod: 'card',
+    cardNumber: '',
+    cardExpiry: '',
+    cardCVV: '',
+    cardHolder: '',
   });
-
-  const selectedDelivery = DELIVERY_METHODS.find((m) => m.value === formData.delivery_method);
-  const deliveryCost = selectedDelivery?.cost || 0;
+  
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Delivery options with prices
+  const deliveryOptions = [
+    { value: 'courier', label: 'Курьерская доставка', price: 500, days: '1-2 дня' },
+    { value: 'pickup', label: 'Самовывоз', price: 0, days: 'Сегодня' },
+    { value: 'mail', label: 'Почта России', price: 200, days: '5-7 дней' },
+  ];
+  
+  // Calculate delivery cost
+  const deliveryCost = deliveryOptions.find(o => o.value === formData.deliveryMethod)?.price || 0;
   const totalCost = cart.total_price + deliveryCost;
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-
-    if (cart.items.length === 0) {
-      alert('Корзина пуста');
-      return;
+  
+  // Validation for Step 1
+  const validateStep1 = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'Введите имя';
     }
-
-    const result = await dispatch(createOrder(formData));
-
-    if (createOrder.fulfilled.match(result)) {
-      await dispatch(clearCart());
-      alert('Заказ успешно оформлен!');
-      navigate('/orders');
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Введите фамилию';
+    }
+    if (!isValidEmail(formData.email)) {
+      newErrors.email = 'Неверный email';
+    }
+    if (!isValidPhone(formData.phone)) {
+      newErrors.phone = 'Неверный телефон';
+    }
+    if (!formData.address.trim()) {
+      newErrors.address = 'Введите адрес';
+    }
+    if (!formData.city.trim()) {
+      newErrors.city = 'Введите город';
+    }
+    if (!isValidPostalCode(formData.postalCode)) {
+      newErrors.postalCode = 'Неверный индекс';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  
+  // Validation for Step 3 (Payment)
+  const validateStep3 = (): boolean => {
+    if (formData.paymentMethod !== 'card') {
+      return true;
+    }
+    
+    const newErrors: Record<string, string> = {};
+    
+    if (!isValidCardNumber(formData.cardNumber)) {
+      newErrors.cardNumber = 'Неверный номер карты';
+    }
+    if (!isValidCardExpiry(formData.cardExpiry)) {
+      newErrors.cardExpiry = 'Неверный срок действия';
+    }
+    if (!isValidCardCVV(formData.cardCVV)) {
+      newErrors.cardCVV = 'Неверный CVV';
+    }
+    if (!formData.cardHolder.trim()) {
+      newErrors.cardHolder = 'Введите имя держателя';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+  
+  // Handle next step
+  const handleNext = () => {
+    if (currentStep === 1) {
+      if (validateStep1()) {
+        setCurrentStep(2);
+      }
+    } else if (currentStep === 2) {
+      setCurrentStep(3);
+    } else if (currentStep === 3) {
+      if (validateStep3()) {
+        setCurrentStep(4);
+      }
     }
   };
-
-  if (cart.items.length === 0) {
+  
+  // Handle previous step
+  const handlePrev = () => {
+    setCurrentStep(prev => Math.max(1, prev - 1));
+  };
+  
+  // Submit order
+  const handleSubmitOrder = async () => {
+    setIsSubmitting(true);
+    
+    try {
+      const orderData = {
+        delivery_method: formData.deliveryMethod,
+        delivery_cost: deliveryCost,
+        delivery_address: `${formData.address}, ${formData.city}, ${formData.postalCode}`,
+        phone: formData.phone,
+        notes: '',
+        payment_method: formData.paymentMethod,
+      };
+      
+      const result = await dispatch(createOrder(orderData)).unwrap();
+      
+      showToast('success', `Заказ №${result.id} успешно оформлен!`);
+      navigate(`/orders/${result.id}`);
+    } catch (error: any) {
+      showToast('error', error.message || 'Ошибка при оформлении заказа');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Check if cart is empty
+  if (cart.total_items === 0) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
-        <h2 className="text-3xl font-bold text-gray-800 mb-4">Корзина пуста</h2>
-        <p className="text-gray-600 mb-8">Добавьте товары для оформления заказа</p>
+        <h2 className="text-2xl font-bold mb-4">Корзина пуста</h2>
+        <p className="text-gray-600 mb-6">Добавьте товары в корзину для оформления заказа</p>
+        <Button onClick={() => navigate('/shop')}>Перейти в магазин</Button>
       </div>
     );
   }
-
+  
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Оформление заказа</h1>
-
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Form */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Delivery Method */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4">Способ доставки</h2>
-              <div className="space-y-3">
-                {DELIVERY_METHODS.map((method) => (
-                  <label
-                    key={method.value}
-                    className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer ${
-                      formData.delivery_method === method.value
-                        ? 'border-primary-600 bg-primary-50'
-                        : 'border-gray-300'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <input
-                        type="radio"
-                        name="delivery_method"
-                        value={method.value}
-                        checked={formData.delivery_method === method.value}
-                        onChange={(e) => setFormData({ ...formData, delivery_method: e.target.value })}
-                        className="mr-3"
-                      />
-                      <div>
-                        <div className="font-semibold">{method.label}</div>
-                        <div className="text-sm text-gray-600">{method.days}</div>
-                      </div>
-                    </div>
-                    <div className="font-bold">{formatPrice(method.cost)}</div>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Delivery Address */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4">Адрес доставки</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Адрес *
-                  </label>
-                  <textarea
-                    value={formData.delivery_address}
-                    onChange={(e) => setFormData({ ...formData, delivery_address: e.target.value })}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    required
-                    placeholder="Улица, дом, квартира"
+      
+      {/* Stepper */}
+      <CheckoutStepper currentStep={currentStep} />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+        {/* Left - Form */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            
+            {/* Step 1 - Address */}
+            {currentStep === 1 && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6">Адрес доставки</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Имя *"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    error={errors.firstName}
+                  />
+                  <Input
+                    label="Фамилия *"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    error={errors.lastName}
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Телефон *
-                  </label>
-                  <input
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <Input
+                    label="Email *"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    error={errors.email}
+                  />
+                  <Input
+                    label="Телефон *"
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    required
+                    error={errors.phone}
                     placeholder="+7 (XXX) XXX-XX-XX"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Комментарий к заказу
-                  </label>
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    rows={2}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Дополнительные пожелания"
+                
+                <Input
+                  label="Адрес *"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  error={errors.address}
+                  placeholder="Улица, дом, квартира"
+                  className="mt-4"
+                />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <Input
+                    label="Город *"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    error={errors.city}
+                  />
+                  <Input
+                    label="Индекс *"
+                    value={formData.postalCode}
+                    onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
+                    error={errors.postalCode}
+                    placeholder="123456"
                   />
                 </div>
-              </div>
-            </div>
-
-            {/* Payment Method */}
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4">Способ оплаты</h2>
-              <div className="space-y-3">
-                {PAYMENT_METHODS.map((method) => (
-                  <label
-                    key={method.value}
-                    className={`flex items-center p-4 border-2 rounded-lg cursor-pointer ${
-                      formData.payment_method === method.value
-                        ? 'border-primary-600 bg-primary-50'
-                        : 'border-gray-300'
-                    }`}
-                  >
+                
+                <div className="mt-4">
+                  <label className="flex items-center">
                     <input
-                      type="radio"
-                      name="payment_method"
-                      value={method.value}
-                      checked={formData.payment_method === method.value}
-                      onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-                      className="mr-3"
+                      type="checkbox"
+                      checked={formData.saveToProfile}
+                      onChange={(e) => setFormData({ ...formData, saveToProfile: e.target.checked })}
+                      className="mr-2"
                     />
-                    <span className="text-2xl mr-3">{method.icon}</span>
-                    <span className="font-semibold">{method.label}</span>
+                    <span className="text-sm">Сохранить адрес в профиле</span>
                   </label>
-                ))}
+                </div>
               </div>
-            </div>
-          </div>
-
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
-              <h2 className="text-2xl font-bold mb-6">Ваш заказ</h2>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center justify-between text-gray-600">
-                  <span>Товары ({cart.total_items} шт.):</span>
-                  <span>{formatPrice(cart.total_price)}</span>
+            )}
+            
+            {/* Step 2 - Delivery */}
+            {currentStep === 2 && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6">Способ доставки</h2>
+                
+                <div className="space-y-4">
+                  {deliveryOptions.map((option) => (
+                    <div
+                      key={option.value}
+                      className={`border rounded-lg p-4 cursor-pointer transition ${
+                        formData.deliveryMethod === option.value
+                          ? 'border-primary-600 bg-primary-50'
+                          : 'border-gray-300 hover:border-primary-400'
+                      }`}
+                      onClick={() => setFormData({ ...formData, deliveryMethod: option.value as any })}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <input
+                            type="radio"
+                            name="delivery"
+                            checked={formData.deliveryMethod === option.value}
+                            onChange={() => {}}
+                            className="mr-3"
+                          />
+                          <div>
+                            <div className="font-semibold">{option.label}</div>
+                            <div className="text-sm text-gray-600">Доставка: {option.days}</div>
+                          </div>
+                        </div>
+                        <div className="font-bold">
+                          {option.price === 0 ? 'Бесплатно' : `${option.price} ₽`}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex items-center justify-between text-gray-600">
-                  <span>Доставка:</span>
-                  <span>{formatPrice(deliveryCost)}</span>
+              </div>
+            )}
+            
+            {/* Step 3 - Payment */}
+            {currentStep === 3 && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6">Способ оплаты</h2>
+                
+                <div className="space-y-4 mb-6">
+                  <Radio
+                    name="payment"
+                    checked={formData.paymentMethod === 'card'}
+                    onChange={() => setFormData({ ...formData, paymentMethod: 'card' })}
+                    label="Банковская карта"
+                  />
+                  <Radio
+                    name="payment"
+                    checked={formData.paymentMethod === 'cash'}
+                    onChange={() => setFormData({ ...formData, paymentMethod: 'cash' })}
+                    label="Наличные при получении"
+                  />
+                  <Radio
+                    name="payment"
+                    checked={formData.paymentMethod === 'wallet'}
+                    onChange={() => setFormData({ ...formData, paymentMethod: 'wallet' })}
+                    label="Электронный кошелек"
+                  />
                 </div>
-                <div className="border-t pt-3">
-                  <div className="flex items-center justify-between text-2xl font-bold">
-                    <span>Итого:</span>
-                    <span className="text-primary-600">{formatPrice(totalCost)}</span>
+                
+                {formData.paymentMethod === 'card' && (
+                  <div className="border-t pt-6">
+                    <h3 className="font-semibold mb-4">Данные карты</h3>
+                    
+                    <Input
+                      label="Номер карты *"
+                      value={formatCardNumber(formData.cardNumber)}
+                      onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value.replace(/\s/g, '') })}
+                      error={errors.cardNumber}
+                      placeholder="1234 5678 9012 3456"
+                      maxLength={19}
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      <Input
+                        label="Срок действия *"
+                        value={formatCardExpiry(formData.cardExpiry)}
+                        onChange={(e) => setFormData({ ...formData, cardExpiry: e.target.value })}
+                        error={errors.cardExpiry}
+                        placeholder="MM/YY"
+                        maxLength={5}
+                      />
+                      <Input
+                        label="CVV *"
+                        type="password"
+                        value={formData.cardCVV}
+                        onChange={(e) => setFormData({ ...formData, cardCVV: e.target.value })}
+                        error={errors.cardCVV}
+                        placeholder="123"
+                        maxLength={3}
+                      />
+                    </div>
+                    
+                    <Input
+                      label="Имя держателя *"
+                      value={formData.cardHolder}
+                      onChange={(e) => setFormData({ ...formData, cardHolder: e.target.value.toUpperCase() })}
+                      error={errors.cardHolder}
+                      placeholder="IVAN IVANOV"
+                      className="mt-4"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Step 4 - Confirmation */}
+            {currentStep === 4 && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6">Подтверждение заказа</h2>
+                
+                {/* Order summary */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="font-semibold mb-2">Адрес доставки</h3>
+                    <p className="text-gray-600">
+                      {formData.firstName} {formData.lastName}<br />
+                      {formData.address}, {formData.city}, {formData.postalCode}<br />
+                      {formData.phone}<br />
+                      {formData.email}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold mb-2">Способ доставки</h3>
+                    <p className="text-gray-600">
+                      {deliveryOptions.find(o => o.value === formData.deliveryMethod)?.label}
+                      {' - '}
+                      {deliveryCost === 0 ? 'Бесплатно' : `${deliveryCost} ₽`}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold mb-2">Способ оплаты</h3>
+                    <p className="text-gray-600">
+                      {formData.paymentMethod === 'card' && 'Банковская карта'}
+                      {formData.paymentMethod === 'cash' && 'Наличные при получении'}
+                      {formData.paymentMethod === 'wallet' && 'Электронный кошелек'}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="font-semibold mb-2">Товары ({cart.total_items})</h3>
+                    <div className="space-y-2">
+                      {cart.items.map((item) => (
+                        <div key={item.id} className="flex justify-between text-sm">
+                          <span>{item.product_name} × {item.quantity}</span>
+                          <span>{item.subtotal} ₽</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-primary-600 text-white py-3 rounded-lg text-lg font-semibold hover:bg-primary-700 disabled:bg-gray-400"
-              >
-                {isLoading ? <LoadingSpinner size="sm" /> : 'Подтвердить заказ'}
-              </button>
+            )}
+            
+            {/* Navigation buttons */}
+            <div className="flex justify-between mt-8">
+              {currentStep > 1 && (
+                <Button variant="secondary" onClick={handlePrev}>
+                  Назад
+                </Button>
+              )}
+              
+              {currentStep < 4 ? (
+                <Button onClick={handleNext} className="ml-auto">
+                  Далее
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSubmitOrder}
+                  disabled={isSubmitting}
+                  className="ml-auto"
+                >
+                  {isSubmitting ? 'Оформление...' : 'Оформить заказ'}
+                </Button>
+              )}
             </div>
           </div>
         </div>
-      </form>
+        
+        {/* Right - Order Summary (Sticky) */}
+        <div className="lg:col-span-1">
+          <div className="sticky top-4">
+            <OrderSummary
+              subtotal={cart.total_price}
+              delivery={deliveryCost}
+              total={totalCost}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import NotFoundPage from './pages/NotFoundPage';
 
 // Components
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import { ToastProvider } from './components/common/ToastContainer';
 
 function App() {
   const dispatch = useAppDispatch();
@@ -40,10 +41,11 @@ function App() {
   }, [dispatch, isAuthenticated]);
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
-      
-      <main className="flex-grow">
+    <ToastProvider>
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        
+        <main className="flex-grow">
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<HomePage />} />
@@ -129,6 +131,7 @@ function App() {
 
       <Footer />
     </div>
+    </ToastProvider>
   );
 }
 

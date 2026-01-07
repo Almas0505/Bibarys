@@ -90,4 +90,17 @@ export const authService = {
     const userStr = localStorage.getItem(STORAGE_KEYS.USER);
     return userStr ? JSON.parse(userStr) : null;
   },
+
+  /**
+   * Update user profile
+   */
+  updateProfile: async (data: Partial<User>): Promise<User> => {
+    const response = await api.patch<User>('/auth/me', data);
+    const user = response.data;
+    
+    // Update cached user
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    
+    return user;
+  },
 };

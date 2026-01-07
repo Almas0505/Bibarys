@@ -8,6 +8,8 @@ import { Cart } from '../types';
 
 interface CartState {
   cart: Cart;
+  promoCode: string | null;
+  discount: number;
   isLoading: boolean;
   error: string | null;
 }
@@ -18,6 +20,8 @@ const initialState: CartState = {
     total_items: 0,
     total_price: 0,
   },
+  promoCode: null,
+  discount: 0,
   isLoading: false,
   error: null,
 };
@@ -82,6 +86,18 @@ export const clearCart = createAsyncThunk(
       return;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.detail || 'Failed to clear cart');
+    }
+  }
+);
+
+export const applyPromoCode = createAsyncThunk(
+  'cart/applyPromoCode',
+  async (promoCode: string, { rejectWithValue }) => {
+    try {
+      const response = await cartService.applyPromoCode(promoCode);
+      return response;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.detail || 'Failed to apply promo code');
     }
   }
 );
@@ -159,6 +175,23 @@ const cartSlice = createSlice({
         total_items: 0,
         total_price: 0,
       };
+      state.promoCode = null;
+      state.discount = 0;
+    });
+
+    // Apply promo code
+    builder.addCase(applyPromoCode.pending, (state) => {
+      state.isLoading = true;
+    });
+    builder.addCase(applyPromoCode.fulfilled, (state, action) => {
+      state.isLoading = false;
+      state.promoCode = action.payload.promoCode;
+      state.discount = action.payload.discount;
+      state.error = null;
+    });
+    builder.addCase(applyPromoCode.rejected, (state, action) => {
+      state.isLoading = false;
+      state.error = action.payload as string;
     });
   },
 });

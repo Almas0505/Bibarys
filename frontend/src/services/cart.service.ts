@@ -58,4 +58,15 @@ export const cartService = {
   clearCart: async (): Promise<void> => {
     await api.delete('/cart');
   },
+
+  /**
+   * Apply promo code
+   */
+  applyPromoCode: async (promoCode: string): Promise<{ promoCode: string; discount: number }> => {
+    const response = await api.post<{ discount: number }>('/cart/promo', { code: promoCode });
+    return {
+      promoCode,
+      discount: response.data.discount,
+    };
+  },
 };

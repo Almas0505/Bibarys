@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     SMTP_USER: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
     EMAILS_FROM_EMAIL: Optional[str] = None
+    SMTP_FROM: str = "noreply@bibarys.com"
+    FRONTEND_URL: str = "http://localhost:3000"
     
     # Payment (placeholder)
     STRIPE_SECRET_KEY: Optional[str] = None

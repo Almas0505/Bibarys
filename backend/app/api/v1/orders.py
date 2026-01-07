@@ -86,13 +86,16 @@ def create_order(
     """
     order = OrderService.create_order_from_cart(db, order_data, current_user.id)
     
-    # Send order confirmation email (placeholder)
+    # Send order confirmation email
     from app.services.email_service import EmailService
-    EmailService.send_order_confirmation_email(
-        current_user.email,
-        order.id,
-        order.tracking_number
-    )
+    try:
+        EmailService.send_order_confirmation(
+            current_user.email,
+            order.id,
+            order.total_price
+        )
+    except:
+        pass  # Don't fail order creation if email fails
     
     return order
 
@@ -112,6 +115,17 @@ def update_order_status(
     """
     is_admin = current_user.role == UserRole.ADMIN
     order = OrderService.update_order_status(db, order_id, order_data, current_user.id, is_admin)
+    
+    # Send status update email
+    from app.services.email_service import EmailService
+    try:
+        EmailService.send_order_status_update(
+            order.user.email,
+            order.id,
+            order.status.value
+        )
+    except:
+        pass  # Don't fail status update if email fails
     
     return order
 

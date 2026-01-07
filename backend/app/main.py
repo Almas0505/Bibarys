@@ -12,6 +12,9 @@ import logging
 from app.config import settings
 from app.db.session import init_db
 from app.core.exceptions import BaseAPIException
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 # Configure logging
 logging.basicConfig(
@@ -39,6 +42,9 @@ async def lifespan(app: FastAPI):
     logger.info("Shutting down E-Commerce API...")
 
 
+# Create rate limiter
+limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
+
 # Create FastAPI application
 app = FastAPI(
     title=settings.APP_NAME,
@@ -49,6 +55,10 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
     lifespan=lifespan,
 )
+
+# Add rate limiter to app state
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 # CORS Middleware
@@ -126,8 +136,13 @@ async def root():
     }
 
 
+# Mount static files for uploads
+from fastapi.staticfiles import StaticFiles
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
 # Import and include routers
-from app.api.v1 import auth, products, cart, orders, reviews, wishlist, payments, admin, seller, analytics
+from app.api.v1 import auth, products, cart, orders, reviews, wishlist, payments, admin, seller, analytics, upload
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
@@ -139,6 +154,7 @@ app.include_router(payments.router, prefix="/api/v1/payments", tags=["Payments"]
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(seller.router, prefix="/api/v1/seller", tags=["Seller"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
+app.include_router(upload.router, prefix="/api/v1/upload", tags=["Upload"])
 
 
 if __name__ == "__main__":

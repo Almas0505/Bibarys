@@ -1,7 +1,7 @@
 """
 Authentication endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.models import User
@@ -12,12 +12,16 @@ from app.services.email_service import EmailService
 from app.core.security import create_access_token, create_refresh_token, verify_refresh_token
 from app.core.exceptions import UnauthorizedException
 from app.api.v1 import get_current_user
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register(user_data: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("3/hour")
+def register(request: Request, user_data: UserCreate, db: Session = Depends(get_db)):
     """
     Register a new user
     
@@ -26,22 +30,30 @@ def register(user_data: UserCreate, db: Session = Depends(get_db)):
     - **first_name**: User's first name
     - **last_name**: User's last name
     - **role**: User role (customer, seller, admin) - defaults to customer
+    
+    Rate limit: 3 registrations per hour
     """
     # Create user
     user = UserService.create_user(db, user_data)
     
-    # Send welcome email (placeholder)
-    EmailService.send_welcome_email(user.email, user.first_name)
+    # Send welcome email (don't fail registration if email fails)
+    try:
+        EmailService.send_welcome_email(user.email, user.first_name)
+    except:
+        pass
     
     return user
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(login_data: UserLogin, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, login_data: UserLogin, db: Session = Depends(get_db)):
     """
     Login with email and password
     
     Returns JWT access and refresh tokens
+    
+    Rate limit: 5 login attempts per minute
     """
     # Authenticate user
     user = UserService.authenticate_user(db, login_data.email, login_data.password)

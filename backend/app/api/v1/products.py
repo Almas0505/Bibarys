@@ -3,9 +3,10 @@ Product endpoints
 """
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from typing import Optional
 from app.db.session import get_db
-from app.db.models import User
+from app.db.models import User, Product
 from app.schemas.product import (
     ProductCreate,
     ProductUpdate,
@@ -106,6 +107,75 @@ def get_product(product_id: int, db: Session = Depends(get_db)):
     ProductService.increment_view_count(db, product_id)
     
     return product
+
+
+@router.get("/search", response_model=ProductListResponse)
+def search_products(
+    q: str = Query(..., min_length=2, description="Search query"),
+    category: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    in_stock: Optional[bool] = None,
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db)
+):
+    """
+    Advanced product search with filters.
+    
+    - **q**: Search query (minimum 2 characters) - searches in name and description
+    - **category**: Filter by product category
+    - **min_price**: Minimum price filter
+    - **max_price**: Maximum price filter
+    - **in_stock**: Filter by stock availability (true for in stock, false for out of stock)
+    - **skip**: Number of items to skip for pagination
+    - **limit**: Maximum number of items to return (max 100)
+    """
+    query = db.query(Product)
+    
+    # Full-text search
+    search_filter = or_(
+        Product.name.ilike(f"%{q}%"),
+        Product.description.ilike(f"%{q}%")
+    )
+    query = query.filter(search_filter)
+    
+    # Category filter
+    if category:
+        try:
+            category_enum = ProductCategory(category)
+            query = query.filter(Product.category == category_enum)
+        except ValueError:
+            # Invalid category, skip filter
+            pass
+    
+    # Price range
+    if min_price is not None:
+        query = query.filter(Product.price >= min_price)
+    if max_price is not None:
+        query = query.filter(Product.price <= max_price)
+    
+    # Stock filter
+    if in_stock is not None:
+        if in_stock:
+            query = query.filter(Product.quantity > 0)
+        else:
+            query = query.filter(Product.quantity == 0)
+    
+    total = query.count()
+    products = query.offset(skip).limit(limit).all()
+    
+    # Calculate pagination info
+    page = (skip // limit) + 1 if limit > 0 else 1
+    total_pages = math.ceil(total / limit) if limit > 0 and total > 0 else 0
+    
+    return ProductListResponse(
+        items=products,
+        total=total,
+        page=page,
+        page_size=limit,
+        total_pages=total_pages
+    )
 
 
 @router.post("", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)

@@ -1,237 +1,263 @@
 /**
- * Shop Page - Product Listing with Filters
+ * Shop Page - Product Listing with Filters (Complete Rewrite)
  */
 
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { fetchProducts, setFilters } from '../store/productSlice';
+import { fetchProducts } from '../store/productSlice';
 import { addToCart } from '../store/cartSlice';
+import { addToWishlist, removeFromWishlist } from '../store/wishlistSlice';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { formatPrice } from '../utils/helpers';
-import { PLACEHOLDER_IMAGE, PRODUCT_CATEGORIES } from '../utils/constants';
+import ProductGrid from '../components/product/ProductGrid';
+import ProductFilters, { ProductFiltersState } from '../components/product/ProductFilters';
+import SearchBar from '../components/product/SearchBar';
+import ProductSort, { SortOption } from '../components/product/ProductSort';
+import Pagination from '../components/common/Pagination';
+import EmptyState from '../components/common/EmptyState';
+import Button from '../components/common/Button';
+import { useToast } from '../components/common/ToastContainer';
 import { ProductCategory } from '../types';
 
 export default function ShopPage() {
   const dispatch = useAppDispatch();
-  const { products, pagination, filters, isLoading } = useAppSelector((state) => state.product);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { products, pagination, isLoading } = useAppSelector((state) => state.product);
+  const { items: wishlistItems } = useAppSelector((state) => state.wishlist);
   const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const { showToast } = useToast();
 
-  const [localFilters, setLocalFilters] = useState({
-    category: filters.category || '',
-    search: filters.search || '',
-    min_price: filters.min_price || '',
-    max_price: filters.max_price || '',
-    sort_by: filters.sort_by || 'created_at',
-    sort_order: filters.sort_order || 'desc',
+  // Initialize filters from URL params or localStorage
+  const [filters, setLocalFilters] = useState<ProductFiltersState>(() => {
+    const savedFilters = localStorage.getItem('shopFilters');
+    const categoryParam = searchParams.get('category');
+    
+    if (categoryParam) {
+      return {
+        categories: [categoryParam as ProductCategory],
+        minPrice: '',
+        maxPrice: '',
+        minRating: 0,
+        inStock: false,
+      };
+    }
+    
+    if (savedFilters) {
+      return JSON.parse(savedFilters);
+    }
+    
+    return {
+      categories: [],
+      minPrice: '',
+      maxPrice: '',
+      minRating: 0,
+      inStock: false,
+    };
   });
 
-  useEffect(() => {
-    dispatch(
-      fetchProducts({
-        filters: {
-          ...filters,
-          category: localFilters.category ? (localFilters.category as ProductCategory) : undefined,
-          min_price: localFilters.min_price ? Number(localFilters.min_price) : undefined,
-          max_price: localFilters.max_price ? Number(localFilters.max_price) : undefined,
-        },
-        pagination: { page: pagination.page, page_size: 20 },
-      })
-    );
-  }, [dispatch, filters, pagination.page]);
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [sortBy, setSortBy] = useState<SortOption>(
+    (searchParams.get('sort') as SortOption) || 'newest'
+  );
+  const [currentPage, setCurrentPage] = useState(
+    parseInt(searchParams.get('page') || '1')
+  );
 
-  const handleFilterChange = () => {
-    dispatch(
-      setFilters({
-        category: localFilters.category || undefined,
-        search: localFilters.search || undefined,
-        min_price: localFilters.min_price ? Number(localFilters.min_price) : undefined,
-        max_price: localFilters.max_price ? Number(localFilters.max_price) : undefined,
-        sort_by: localFilters.sort_by,
-        sort_order: localFilters.sort_order as 'asc' | 'desc',
-      })
-    );
+  // Sync filters with localStorage
+  useEffect(() => {
+    localStorage.setItem('shopFilters', JSON.stringify(filters));
+  }, [filters]);
+
+  // Sync URL params
+  useEffect(() => {
+    const params: Record<string, string> = {};
+    
+    if (searchQuery) params.search = searchQuery;
+    if (sortBy !== 'newest') params.sort = sortBy;
+    if (currentPage > 1) params.page = currentPage.toString();
+    if (filters.categories.length > 0) params.category = filters.categories[0];
+    
+    setSearchParams(params);
+  }, [searchQuery, sortBy, currentPage, filters.categories, setSearchParams]);
+
+  // Fetch products when filters change
+  useEffect(() => {
+    const fetchData = async () => {
+      // Map sort option to API format
+      const sortMapping: Record<SortOption, { sort_by: string; sort_order: 'asc' | 'desc' }> = {
+        newest: { sort_by: 'created_at', sort_order: 'desc' },
+        popular: { sort_by: 'view_count', sort_order: 'desc' },
+        price_asc: { sort_by: 'price', sort_order: 'asc' },
+        price_desc: { sort_by: 'price', sort_order: 'desc' },
+        rating_desc: { sort_by: 'rating', sort_order: 'desc' },
+      };
+
+      const sort = sortMapping[sortBy];
+
+      dispatch(
+        fetchProducts({
+          filters: {
+            search: searchQuery || undefined,
+            category: filters.categories[0] || undefined,
+            min_price: filters.minPrice ? Number(filters.minPrice) : undefined,
+            max_price: filters.maxPrice ? Number(filters.maxPrice) : undefined,
+            sort_by: sort.sort_by,
+            sort_order: sort.sort_order,
+          },
+          pagination: { page: currentPage, page_size: 20 },
+        })
+      );
+    };
+
+    fetchData();
+  }, [dispatch, filters, searchQuery, sortBy, currentPage]);
+
+  const handleFiltersChange = (newFilters: ProductFiltersState) => {
+    setLocalFilters(newFilters);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+    setCurrentPage(1);
+  }, []);
+
+  const handleSortChange = (newSort: SortOption) => {
+    setSortBy(newSort);
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleAddToCart = async (productId: number) => {
     if (!isAuthenticated) {
-      alert('Пожалуйста, войдите в систему');
+      showToast('warning', 'Пожалуйста, войдите в систему');
       return;
     }
-    await dispatch(addToCart({ product_id: productId, quantity: 1 }));
+
+    try {
+      await dispatch(addToCart({ product_id: productId, quantity: 1 })).unwrap();
+      showToast('success', 'Товар добавлен в корзину!');
+    } catch (error) {
+      showToast('error', 'Не удалось добавить товар в корзину');
+    }
   };
 
-  const handlePageChange = (newPage: number) => {
-    dispatch(
-      fetchProducts({
-        filters,
-        pagination: { page: newPage, page_size: 20 },
-      })
-    );
+  const handleToggleWishlist = async (productId: number) => {
+    if (!isAuthenticated) {
+      showToast('warning', 'Пожалуйста, войдите в систему');
+      return;
+    }
+
+    const isInWishlist = wishlistItems.some((item) => item.id === productId);
+
+    try {
+      if (isInWishlist) {
+        await dispatch(removeFromWishlist(productId)).unwrap();
+        showToast('info', 'Товар удален из избранного');
+      } else {
+        await dispatch(addToWishlist(productId)).unwrap();
+        showToast('success', 'Товар добавлен в избранное!');
+      }
+    } catch (error) {
+      showToast('error', 'Произошла ошибка');
+    }
   };
+
+  const wishlistProductIds = wishlistItems.map((item) => item.id);
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Каталог товаров</h1>
+      {/* Breadcrumbs */}
+      <nav className="text-sm text-gray-600 mb-6">
+        <Link to="/" className="hover:text-primary-600">
+          Главная
+        </Link>
+        {' > '}
+        <span className="text-gray-800">Каталог</span>
+        {filters.categories.length > 0 && (
+          <>
+            {' > '}
+            <span className="text-gray-800">{filters.categories[0]}</span>
+          </>
+        )}
+      </nav>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Filters Sidebar */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
-            <h2 className="text-xl font-bold mb-4">Фильтры</h2>
-
-            {/* Search */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Поиск</label>
-              <input
-                type="text"
-                value={localFilters.search}
-                onChange={(e) => setLocalFilters({ ...localFilters, search: e.target.value })}
-                placeholder="Название товара..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              />
-            </div>
-
-            {/* Category */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Категория</label>
-              <select
-                aria-label="Выберите категорию"
-                value={localFilters.category}
-                onChange={(e) => setLocalFilters({ ...localFilters, category: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              >
-                <option value="">Все категории</option>
-                {PRODUCT_CATEGORIES.map((cat) => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Price Range */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Цена</label>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="number"
-                  value={localFilters.min_price}
-                  onChange={(e) => setLocalFilters({ ...localFilters, min_price: e.target.value })}
-                  placeholder="От"
-                  className="px-3 py-2 border border-gray-300 rounded-lg"
-                />
-                <input
-                  type="number"
-                  value={localFilters.max_price}
-                  onChange={(e) => setLocalFilters({ ...localFilters, max_price: e.target.value })}
-                  placeholder="До"
-                  className="px-3 py-2 border border-gray-300 rounded-lg"
-                />
-              </div>
-            </div>
-
-            {/* Sort */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Сортировка</label>
-              <select
-                aria-label="Выберите сортировку"
-                value={`${localFilters.sort_by}_${localFilters.sort_order}`}
-                onChange={(e) => {
-                  const [sort_by, sort_order] = e.target.value.split('_');
-                  setLocalFilters({ ...localFilters, sort_by, sort_order: sort_order as 'asc' | 'desc' });
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              >
-                <option value="created_at_desc">Сначала новые</option>
-                <option value="price_asc">Дешевле</option>
-                <option value="price_desc">Дороже</option>
-                <option value="rating_desc">По рейтингу</option>
-              </select>
-            </div>
-
-            <button
-              onClick={handleFilterChange}
-              className="w-full bg-primary-600 text-white py-2 rounded-lg hover:bg-primary-700"
-            >
-              Применить
-            </button>
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Left sidebar - Filters */}
+        <aside className="w-full lg:w-1/4">
+          <div className="lg:sticky lg:top-4">
+            <ProductFilters filters={filters} onFiltersChange={handleFiltersChange} />
           </div>
-        </div>
+        </aside>
 
-        {/* Products Grid */}
-        <div className="lg:col-span-3">
+        {/* Main content */}
+        <main className="flex-1">
+          {/* Top bar */}
+          <div className="flex flex-col md:flex-row gap-4 mb-6">
+            <div className="flex-1">
+              <SearchBar onSearch={handleSearch} />
+            </div>
+            <ProductSort value={sortBy} onChange={handleSortChange} />
+          </div>
+
+          {/* Results count */}
+          {!isLoading && (
+            <p className="text-gray-600 mb-4">
+              Найдено: {pagination.total} товаров
+            </p>
+          )}
+
+          {/* Products grid */}
           {isLoading ? (
             <LoadingSpinner text="Загрузка товаров..." />
           ) : products.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-600 text-lg">Товары не найдены</p>
-            </div>
+            <EmptyState
+              icon="🔍"
+              title="Товары не найдены"
+              description="Попробуйте изменить параметры поиска или фильтры"
+              action={
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setLocalFilters({
+                      categories: [],
+                      minPrice: '',
+                      maxPrice: '',
+                      minRating: 0,
+                      inStock: false,
+                    });
+                    setSearchQuery('');
+                  }}
+                >
+                  Сбросить фильтры
+                </Button>
+              }
+            />
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {products.map((product: any) => (
-                  <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden">
-                    <Link to={`/product/${product.id}`}>
-                      <div className="aspect-square overflow-hidden">
-                        <img
-                          src={product.image_urls[0] || PLACEHOLDER_IMAGE}
-                          alt={product.name}
-                          className="w-full h-full object-cover hover:scale-110 transition-transform"
-                        />
-                      </div>
-                    </Link>
-                    <div className="p-4">
-                      <Link to={`/product/${product.id}`}>
-                        <h3 className="font-semibold text-lg mb-2 line-clamp-2 hover:text-primary-600">
-                          {product.name}
-                        </h3>
-                      </Link>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-2xl font-bold text-primary-600">
-                          {formatPrice(product.price)}
-                        </span>
-                        <div className="flex items-center text-sm text-gray-600">
-                          <span className="text-yellow-400 mr-1">★</span>
-                          {product.rating.toFixed(1)}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => handleAddToCart(product.id)}
-                        className="w-full bg-primary-600 text-white py-2 rounded-lg hover:bg-primary-700"
-                      >
-                        В корзину
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <ProductGrid
+                products={products}
+                columns={3}
+                onAddToCart={handleAddToCart}
+                onAddToWishlist={handleToggleWishlist}
+                wishlistIds={wishlistProductIds}
+              />
 
               {/* Pagination */}
-              {pagination.total_pages > 1 && (
-                <div className="flex items-center justify-center space-x-2 mt-8">
-                  <button
-                    onClick={() => handlePageChange(pagination.page - 1)}
-                    disabled={pagination.page === 1}
-                    className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50"
-                  >
-                    Назад
-                  </button>
-                  <span className="text-gray-600">
-                    Страница {pagination.page} из {pagination.total_pages}
-                  </span>
-                  <button
-                    onClick={() => handlePageChange(pagination.page + 1)}
-                    disabled={pagination.page === pagination.total_pages}
-                    className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50"
-                  >
-                    Вперёд
-                  </button>
-                </div>
-              )}
+              <div className="mt-8">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={pagination.total_pages}
+                  onPageChange={handlePageChange}
+                />
+              </div>
             </>
           )}
-        </div>
+        </main>
       </div>
     </div>
   );

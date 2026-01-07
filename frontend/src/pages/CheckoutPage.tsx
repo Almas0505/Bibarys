@@ -44,7 +44,7 @@ export default function CheckoutPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { showToast } = useToast();
-  const { cart, isLoading: cartLoading } = useAppSelector(state => state.cart);
+  const { cart } = useAppSelector(state => state.cart);
   const { user } = useAppSelector(state => state.auth);
   
   const [currentStep, setCurrentStep] = useState(1);
@@ -429,7 +429,7 @@ export default function CheckoutPage() {
                   <div>
                     <h3 className="font-semibold mb-2">Товары ({cart.total_items})</h3>
                     <div className="space-y-2">
-                      {cart.items.map((item) => (
+                      {cart.items.map((item: any) => (
                         <div key={item.id} className="flex justify-between text-sm">
                           <span>{item.product_name} × {item.quantity}</span>
                           <span>{item.subtotal} ₽</span>

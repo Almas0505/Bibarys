@@ -1,4 +1,4 @@
-import { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'success';
@@ -11,7 +11,6 @@ export default function Button({
   size = 'md',
   className = '',
   children,
-  disabled,
   ...props
 }: ButtonProps) {
   const baseClasses = 'font-semibold rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -32,7 +31,6 @@ export default function Button({
   return (
     <button
       className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
-      disabled={disabled}
       {...props}
     >
       {children}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import Button from '../common/Button';
 import Input from '../common/Input';
+import Select from '../common/Select';
 import Badge from '../common/Badge';
 
 export default function UsersManagement() {

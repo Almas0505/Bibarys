@@ -3,8 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useAppDispatch, useAppSelector } from '../hooks/redux';
-import { fetchProducts } from '../store/productSlice';
+import { useAppSelector } from '../hooks/redux';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ProductForm from '../components/seller/ProductForm';
 import { formatPrice } from '../utils/helpers';
@@ -12,42 +11,25 @@ import { PLACEHOLDER_IMAGE, PRODUCT_CATEGORIES } from '../utils/constants';
 import api from '../services/api';
 
 export default function SellerPage() {
-  const dispatch = useAppDispatch();
   const { products, isLoading } = useAppSelector((state) => state.product);
   const { user } = useAppSelector((state) => state.auth);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProduct, setEditProduct] = useState<any>(null);
-  const [stats, setStats] = useState({
-    totalProducts: 0,
-    activeProducts: 0,
-    totalOrders: 0,
-    totalRevenue: 0,
-  });
 
   // Fetch seller's products
   useEffect(() => {
     if (user?.id) {
       loadSellerProducts();
-      loadSellerStats();
     }
   }, [user?.id]);
 
   const loadSellerProducts = async () => {
     try {
-      const response = await api.get('/api/v1/seller/my-products');
+      // const response = await api.get('/api/v1/seller/my-products');
       // Dispatch to store if needed
     } catch (error) {
       console.error('Error loading products:', error);
-    }
-  };
-
-  const loadSellerStats = async () => {
-    try {
-      const response = await api.get('/api/v1/seller/stats');
-      setStats(response.data);
-    } catch (error) {
-      console.error('Error loading stats:', error);
     }
   };
 
@@ -116,8 +98,7 @@ export default function SellerPage() {
     return <LoadingSpinner text="Загрузка панели продавца..." />;
   }
 
-  const sellerProducts = products.filter(p => p.seller_id === user?.id);
-  const sellerProducts = products.filter(p => p.seller_id === user?.id);
+  const sellerProducts = products.filter((p: any) => p.seller_id === user?.id);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -149,7 +130,7 @@ export default function SellerPage() {
             </div>
           </div>
           <p className="text-gray-600 text-sm mt-2">
-            {sellerProducts.filter(p => p.is_active).length} активных
+            {sellerProducts.filter((p: any) => p.is_active).length} активных
           </p>
         </div>
 
@@ -158,7 +139,7 @@ export default function SellerPage() {
             <div>
               <p className="text-gray-600 text-sm">В наличии</p>
               <p className="text-3xl font-bold">
-                {sellerProducts.reduce((sum, p) => sum + p.quantity, 0)}
+                {sellerProducts.reduce((sum: number, p: any) => sum + p.quantity, 0)}
               </p>
             </div>
             <div className="bg-green-100 p-3 rounded-full">
@@ -175,7 +156,7 @@ export default function SellerPage() {
             <div>
               <p className="text-gray-600 text-sm">Просмотры</p>
               <p className="text-3xl font-bold">
-                {sellerProducts.reduce((sum, p) => sum + p.view_count, 0)}
+                {sellerProducts.reduce((sum: number, p: any) => sum + p.view_count, 0)}
               </p>
             </div>
             <div className="bg-purple-100 p-3 rounded-full">
@@ -193,7 +174,7 @@ export default function SellerPage() {
             <div>
               <p className="text-gray-600 text-sm">Отзывы</p>
               <p className="text-3xl font-bold">
-                {sellerProducts.reduce((sum, p) => sum + p.review_count, 0)}
+                {sellerProducts.reduce((sum: number, p: any) => sum + p.review_count, 0)}
               </p>
             </div>
             <div className="bg-yellow-100 p-3 rounded-full">
@@ -204,7 +185,7 @@ export default function SellerPage() {
           </div>
           <p className="text-gray-600 text-sm mt-2">
             ⭐ {sellerProducts.length > 0 
-              ? (sellerProducts.reduce((sum, p) => sum + p.rating, 0) / sellerProducts.length).toFixed(1)
+              ? (sellerProducts.reduce((sum: number, p: any) => sum + p.rating, 0) / sellerProducts.length).toFixed(1)
               : '0.0'}
           </p>
         </div>
@@ -247,7 +228,7 @@ export default function SellerPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {sellerProducts.map((product) => (
+                {sellerProducts.map((product: any) => (
                   <tr key={product.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -264,7 +245,7 @@ export default function SellerPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-600">
-                        {PRODUCT_CATEGORIES[product.category]}
+                        {PRODUCT_CATEGORIES.find(c => c.value === product.category)?.label || product.category}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

@@ -204,9 +204,9 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
           onChange={(e) => setFormData({ ...formData, category: e.target.value as ProductCategory })}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
         >
-          {Object.entries(PRODUCT_CATEGORIES).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
+          {PRODUCT_CATEGORIES.map((cat) => (
+            <option key={cat.value} value={cat.value}>
+              {cat.label}
             </option>
           ))}
         </select>

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional
+import logging
 from app.db.session import get_db
 from app.db.models import User, Product
 from app.schemas.product import (
@@ -22,6 +23,7 @@ from app.api.v1 import get_current_user, require_seller_or_admin
 import math
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("", response_model=ProductListResponse)
@@ -128,7 +130,8 @@ def search_products(
             category_enum = ProductCategory(category)
             query = query.filter(Product.category == category_enum)
         except ValueError:
-            # Invalid category, skip filter
+            # Invalid category, skip filter and log warning
+            logger.warning(f"Invalid category filter attempted: {category}")
             pass
     
     # Price range

@@ -5,6 +5,7 @@ Main entry point with all routes and middleware
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import time
 import logging
@@ -137,7 +138,6 @@ async def root():
 
 
 # Mount static files for uploads
-from fastapi.staticfiles import StaticFiles
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 

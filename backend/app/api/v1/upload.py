@@ -30,9 +30,12 @@ async def upload_image(
     - Maximum size: 5MB
     
     Returns filename, URL, and file size
+    
+    Note: Content type validation is supplemented by file extension validation
+    in save_upload_file for enhanced security.
     """
     try:
-        # Validate content type
+        # Validate content type (first layer of defense)
         if not file.content_type or not file.content_type.startswith('image/'):
             raise HTTPException(400, "Only image files are allowed")
         
@@ -67,7 +70,12 @@ async def delete_image(
     Requires authentication
     """
     try:
-        await delete_file(filename)
-        return {"message": "File deleted successfully"}
+        deleted = await delete_file(filename)
+        if deleted:
+            return {"message": "File deleted successfully"}
+        else:
+            raise HTTPException(404, "File not found")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(500, f"File deletion failed: {str(e)}")

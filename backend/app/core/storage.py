@@ -51,11 +51,21 @@ async def save_upload_file(file: UploadFile) -> str:
     return new_filename
 
 
-async def delete_file(filename: str):
-    """Delete uploaded file."""
+async def delete_file(filename: str) -> bool:
+    """
+    Delete uploaded file.
+    
+    Returns:
+        bool: True if file was deleted, False if file didn't exist
+        
+    Raises:
+        Exception: If deletion fails for reasons other than file not existing
+    """
     file_path = UPLOAD_DIR / filename
     if file_path.exists() and file_path.is_file():
         os.remove(file_path)
+        return True
+    return False
 
 
 def get_file_url(filename: str) -> str:

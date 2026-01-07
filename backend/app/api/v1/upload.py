@@ -1,6 +1,7 @@
 """
 Upload endpoints for image files
 """
+import asyncio
 from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from app.api.v1 import get_current_user
@@ -42,9 +43,10 @@ async def upload_image(
         # Save file
         filename = await save_upload_file(file)
         
-        # Get file size
+        # Get file size using non-blocking I/O
         file_path = Path("static/uploads") / filename
-        size = file_path.stat().st_size
+        stat_result = await asyncio.to_thread(file_path.stat)
+        size = stat_result.st_size
         
         return UploadResponse(
             filename=filename,

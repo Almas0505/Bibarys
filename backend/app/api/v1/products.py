@@ -132,7 +132,6 @@ def search_products(
         except ValueError:
             # Invalid category, skip filter and log warning
             logger.warning(f"Invalid category filter attempted: {category}")
-            pass
     
     # Price range
     if min_price is not None:

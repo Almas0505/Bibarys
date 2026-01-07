@@ -4,7 +4,7 @@ Email service for sending notifications
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Optional
+from typing import Optional, List
 import logging
 from app.config import settings
 
@@ -163,7 +163,7 @@ class EmailService:
         return EmailService.send_password_reset(email, reset_token)
     
     @staticmethod
-    def send_bulk_email(emails: list, subject: str, body: str) -> bool:
+    def send_bulk_email(emails: List[str], subject: str, body: str) -> bool:
         """Send bulk email (admin feature)."""
         logger.info(f"[EMAIL] Sending bulk email to {len(emails)} recipients")
         logger.info(f"Subject: {subject}")

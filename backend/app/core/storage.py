@@ -3,6 +3,7 @@ Storage service for handling file uploads
 """
 import os
 import uuid
+import asyncio
 from pathlib import Path
 from typing import Optional
 from fastapi import UploadFile
@@ -67,7 +68,8 @@ async def delete_file(filename: str) -> bool:
     """
     file_path = UPLOAD_DIR / filename
     if file_path.exists() and file_path.is_file():
-        os.remove(file_path)
+        # Use asyncio.to_thread for non-blocking file deletion
+        await asyncio.to_thread(os.remove, file_path)
         return True
     return False
 

@@ -40,10 +40,12 @@ export default function OrdersPage() {
       const now = new Date();
       
       if (filterPeriod === 'month') {
-        const monthAgo = new Date(now.setMonth(now.getMonth() - 1));
+        const monthAgo = new Date(now);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
         if (orderDate < monthAgo) return false;
       } else if (filterPeriod === 'year') {
-        const yearAgo = new Date(now.setFullYear(now.getFullYear() - 1));
+        const yearAgo = new Date(now);
+        yearAgo.setFullYear(yearAgo.getFullYear() - 1);
         if (orderDate < yearAgo) return false;
       }
     }

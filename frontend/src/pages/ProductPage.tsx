@@ -50,10 +50,10 @@ export default function ProductPage() {
           filters: { category: product.category },
           pagination: { page: 1, page_size: 4 },
         })
-      ).then((result: any) => {
-        if (result.payload) {
+      ).then((result) => {
+        if (result.payload && Array.isArray(result.payload)) {
           // Filter out current product
-          const filtered = result.payload.filter((p: any) => p.id !== product.id);
+          const filtered = result.payload.filter((p) => p.id !== product.id);
           setSimilarProducts(filtered.slice(0, 4));
         }
       });

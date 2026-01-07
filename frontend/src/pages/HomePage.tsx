@@ -3,7 +3,7 @@
  */
 
 import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { fetchProducts } from '../store/productSlice';
 import { addToCart } from '../store/cartSlice';
@@ -15,6 +15,7 @@ import { useToast } from '../components/common/ToastContainer';
 
 export default function HomePage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { products, isLoading, error } = useAppSelector((state) => state.product);
   const { items: wishlistItems } = useAppSelector((state) => state.wishlist);
   const { isAuthenticated } = useAppSelector((state) => state.auth);
@@ -94,7 +95,7 @@ export default function HomePage() {
           <Button 
             variant="outline" 
             size="lg"
-            onClick={() => window.location.href = '/shop'}
+            onClick={() => navigate('/shop')}
             className="bg-white text-primary-600 hover:bg-gray-100 border-white"
           >
             Перейти в каталог

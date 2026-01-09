@@ -20,6 +20,7 @@ class User(BaseModel):
     avatar_url = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
+    balance = Column(Float, default=0.0, nullable=False)  # Virtual wallet balance
     
     # Relationships
     products = relationship("Product", back_populates="seller", foreign_keys="Product.seller_id")
@@ -27,6 +28,7 @@ class User(BaseModel):
     reviews = relationship("Review", back_populates="user")
     cart_items = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
     wishlist_items = relationship("Wishlist", back_populates="user", cascade="all, delete-orphan")
+    transactions = relationship("Transaction", back_populates="user", cascade="all, delete-orphan")
 
 
 class Product(BaseModel):
@@ -145,3 +147,17 @@ class CartItem(BaseModel):
     # Relationships
     user = relationship("User", back_populates="cart_items")
     product = relationship("Product", back_populates="cart_items")
+
+
+class Transaction(BaseModel):
+    """Transaction model - tracks wallet balance changes"""
+    __tablename__ = "transactions"
+    
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    amount = Column(Float, nullable=False)  # Positive for deposits, negative for withdrawals
+    type = Column(String(50), nullable=False)  # deposit, withdraw, purchase, refund
+    description = Column(Text, nullable=True)
+    balance_after = Column(Float, nullable=False)  # Balance after transaction
+    
+    # Relationships
+    user = relationship("User", back_populates="transactions")

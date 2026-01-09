@@ -217,3 +217,67 @@ def get_seller_orders(
         page_size=page_size,
         total_pages=total_pages
     )
+
+
+class TopCustomer(BaseModel):
+    """Top customer response"""
+    user_id: int
+    name: str
+    email: str
+    orders_count: int
+    total_spent: float
+
+
+@router.get("/top-customers", response_model=List[TopCustomer])
+def get_top_customers(
+    limit: int = Query(5, ge=1, le=20),
+    current_user: User = Depends(require_seller_or_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get top customers by total spending on seller's products
+    
+    Returns the top customers who have purchased the most from this seller,
+    sorted by total amount spent.
+    
+    Requires seller or admin role
+    """
+    from app.core.constants import OrderStatus
+    from sqlalchemy import and_
+    
+    # Get all orders with seller's products
+    top_customers_query = db.query(
+        User.id.label('user_id'),
+        User.first_name,
+        User.last_name,
+        User.email,
+        func.count(func.distinct(Order.id)).label('orders_count'),
+        func.sum(OrderItem.price_at_purchase * OrderItem.quantity).label('total_spent')
+    ).join(
+        Order, User.id == Order.user_id
+    ).join(
+        OrderItem, Order.id == OrderItem.order_id
+    ).filter(
+        and_(
+            OrderItem.seller_id == current_user.id,
+            Order.status.in_([OrderStatus.DELIVERED, OrderStatus.PROCESSING, OrderStatus.SHIPPED])
+        )
+    ).group_by(
+        User.id, User.first_name, User.last_name, User.email
+    ).order_by(
+        func.sum(OrderItem.price_at_purchase * OrderItem.quantity).desc()
+    ).limit(limit).all()
+    
+    # Format response
+    top_customers = [
+        TopCustomer(
+            user_id=customer.user_id,
+            name=f"{customer.first_name} {customer.last_name}",
+            email=customer.email,
+            orders_count=customer.orders_count,
+            total_spent=float(customer.total_spent or 0)
+        )
+        for customer in top_customers_query
+    ]
+    
+    return top_customers

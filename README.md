@@ -34,6 +34,13 @@
 - 📈 Аналитика и отчёты
 - 🔧 Системные настройки
 
+### Дополнительные возможности
+- 🔔 **WebSocket** - real-time уведомления о статусе заказов
+- 📊 **Аналитика** - продавцам доступна детальная статистика продаж
+- 🔒 **Rate Limiting** - защита от злоупотреблений
+- 📧 **Email** - уведомления по email (опционально)
+- 📤 **File Upload** - загрузка изображений товаров
+
 ## 🚀 Технологии
 
 ### Backend
@@ -42,13 +49,24 @@
 - **Pydantic** - валидация данных
 - **JWT** - аутентификация
 - **SQLite/PostgreSQL** - база данных
+- **WebSocket** - real-time коммуникация
+- **SlowAPI** - rate limiting
+- **HTTPX** - async HTTP client
 
-### Frontend (будет добавлен)
+### Frontend
 - **React 18** - UI библиотека
 - **TypeScript** - типизация
 - **Redux Toolkit** - state management
 - **Tailwind CSS** - стилизация
 - **Axios** - HTTP client
+- **React Router** - навигация
+
+### DevOps
+- **Docker** - контейнеризация
+- **Nginx** - reverse proxy
+- **PostgreSQL** - production БД
+- **Redis** - кэширование и сессии
+- **Pytest** - тестирование
 
 ## 📁 Структура проекта
 
@@ -148,10 +166,21 @@ docker-compose down
 - `PUT /api/v1/reviews/{id}` - Обновить отзыв
 - `DELETE /api/v1/reviews/{id}` - Удалить отзыв
 
-#### Избранное
+#### Избранное (Wishlist)
 - `GET /api/v1/wishlist` - Получить избранное
 - `POST /api/v1/wishlist/{product_id}` - Добавить в избранное
 - `DELETE /api/v1/wishlist/{product_id}` - Удалить из избранного
+- `DELETE /api/v1/wishlist` - Очистить избранное
+
+#### Отзывы (Reviews)
+- `GET /api/v1/reviews/product/{product_id}` - Отзывы товара (с пагинацией)
+- `POST /api/v1/reviews/product/{product_id}` - Создать отзыв
+- `DELETE /api/v1/reviews/{review_id}` - Удалить отзыв
+
+#### WebSocket
+- `WS /api/v1/ws/{token}` - WebSocket подключение для real-time уведомлений
+  - Уведомления об изменении статуса заказа
+  - Требует JWT токен в URL
 
 #### Платежи
 - `POST /api/v1/payments` - Создать платёж
@@ -270,6 +299,26 @@ DATABASE_URL=postgresql://user:password@localhost:5432/ecommerce
 - [x] Production deployment setup (Docker + Nginx)
 
 ## 🚀 Production Deployment
+
+> **📖 Полное руководство по деплою**: См. [DEPLOYMENT.md](./DEPLOYMENT.md) для детальных инструкций
+
+### Быстрый старт
+
+1. **Настройка окружения:**
+```bash
+cp .env.production.example .env.production
+# Отредактируйте .env.production с вашими настройками
+```
+
+2. **Сборка фронтенда:**
+```bash
+cd frontend && npm install && npm run build
+```
+
+3. **Запуск с Docker Compose:**
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
 
 ### Prerequisites
 
@@ -434,4 +483,16 @@ Created with ❤️ using FastAPI and React
 
 ---
 
-**Статус проекта**: 🟢 Backend готов | 🔴 Frontend в разработке
+**Статус проекта**: 🟢 Production Ready
+
+### Готово к деплою:
+- ✅ Backend API (FastAPI) - 50+ endpoints
+- ✅ Frontend (React + TypeScript + Redux)
+- ✅ База данных (PostgreSQL/SQLite)
+- ✅ Аутентификация (JWT)
+- ✅ WebSocket real-time notifications
+- ✅ Docker + Nginx production setup
+- ✅ Тесты (pytest)
+- ✅ Документация API (Swagger)
+
+**Подробности деплоя**: [DEPLOYMENT.md](./DEPLOYMENT.md)

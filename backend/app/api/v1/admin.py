@@ -4,6 +4,7 @@ Admin endpoints - Administrative functions
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
 from app.db.session import get_db
 from app.db.models import User, Order, Product
 from app.schemas.user import UserResponse, UserAdminUpdate
@@ -232,3 +233,50 @@ def get_all_products(
     """
     products = db.query(Product).offset(skip).limit(limit).all()
     return products
+
+
+@router.get("/export/pdf")
+def export_analytics_pdf(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Export analytics data to PDF
+    
+    Generates a PDF report with platform statistics, recent orders, and top products.
+    All prices are displayed in Tenge (₸).
+    
+    Requires admin role
+    """
+    from fastapi.responses import FileResponse
+    from app.services.pdf_service import PDFService
+    import os
+    
+    # Get dashboard statistics
+    stats = get_dashboard_stats(current_user, db)
+    
+    # Get recent orders
+    orders_response = get_all_orders(1, 20, None, None, current_user, db)
+    orders = orders_response.items
+    
+    # Get top products (sorted by rating)
+    products = db.query(Product).filter(
+        Product.is_active == True
+    ).order_by(
+        Product.rating.desc()
+    ).limit(20).all()
+    
+    # Generate PDF
+    pdf_path = PDFService.generate_analytics_report(
+        stats=stats.dict(),
+        orders=orders,
+        products=products
+    )
+    
+    # Return PDF file
+    return FileResponse(
+        pdf_path,
+        media_type='application/pdf',
+        filename=f"bibarys_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+        headers={"Content-Disposition": f"attachment; filename=bibarys_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"}
+    )

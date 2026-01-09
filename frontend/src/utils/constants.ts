@@ -42,16 +42,16 @@ export const ORDER_STATUSES = {
 
 // Delivery Methods
 export const DELIVERY_METHODS = [
-  { value: 'standard', label: 'Стандартная доставка', cost: 500, days: '5-7 дней' },
-  { value: 'express', label: 'Экспресс доставка', cost: 1500, days: '1-2 дня' },
+  { value: 'standard', label: 'Стандартная доставка', cost: 2000, days: '5-7 дней' },
+  { value: 'express', label: 'Экспресс доставка', cost: 5000, days: '1-2 дня' },
   { value: 'pickup', label: 'Самовывоз', cost: 0, days: 'Сегодня' },
 ] as const;
 
 // Payment Methods
 export const PAYMENT_METHODS = [
   { value: 'card', label: 'Банковская карта', icon: '💳' },
-  { value: 'cash', label: 'Наличные', icon: '💵' },
-  { value: 'wallet', label: 'Электронный кошелёк', icon: '👛' },
+  { value: 'cash', label: 'Наличные при получении', icon: '💵' },
+  { value: 'wallet', label: 'Виртуальный кошелек', icon: '👛' },
 ] as const;
 
 // User Roles

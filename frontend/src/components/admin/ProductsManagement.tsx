@@ -1,32 +1,79 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import Badge from '../common/Badge';
+import { adminService } from '../../services/admin.service';
+import { formatPrice } from '../../utils/helpers';
+
+interface Product {
+  id: number;
+  name: string;
+  category: string;
+  price: number;
+  quantity: number;
+  is_active: boolean;
+}
 
 export default function ProductsManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-
-  // Mock data - in real app, fetch from API
-  const products = [
-    { id: 1, name: 'Laptop Pro 15', category: 'electronics', price: 89990, stock: 15, isActive: true },
-    { id: 2, name: 'Gaming Mouse', category: 'electronics', price: 3990, stock: 45, isActive: true },
-    { id: 3, name: 'Cotton T-Shirt', category: 'clothing', price: 1290, stock: 100, isActive: true },
-    { id: 4, name: 'Programming Book', category: 'books', price: 2490, stock: 0, isActive: false },
-  ];
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const categories = [
     { value: 'all', label: 'Все категории' },
     { value: 'electronics', label: 'Электроника' },
     { value: 'clothing', label: 'Одежда' },
     { value: 'books', label: 'Книги' },
+    { value: 'home', label: 'Дом и сад' },
+    { value: 'sports', label: 'Спорт' },
+    { value: 'toys', label: 'Игрушки' },
+    { value: 'beauty', label: 'Красота' },
+    { value: 'food', label: 'Еда' },
   ];
+
+  useEffect(() => {
+    loadProducts();
+  }, []);
+
+  const loadProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await adminService.getAllProducts();
+      setProducts(data);
+    } catch (err: any) {
+      console.error('Error loading products:', err);
+      setError(err.response?.data?.detail || 'Ошибка загрузки товаров');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="text-center py-8 text-gray-500">Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -70,15 +117,15 @@ export default function ProductsManagement() {
                   <td className="py-3 px-4">{product.id}</td>
                   <td className="py-3 px-4 font-semibold">{product.name}</td>
                   <td className="py-3 px-4 text-gray-600">{product.category}</td>
-                  <td className="py-3 px-4 font-bold">₽{product.price.toLocaleString()}</td>
+                  <td className="py-3 px-4 font-bold">{formatPrice(product.price)}</td>
                   <td className="py-3 px-4">
-                    <Badge variant={product.stock > 0 ? 'success' : 'error'}>
-                      {product.stock} шт.
+                    <Badge variant={product.quantity > 0 ? 'success' : 'error'}>
+                      {product.quantity} шт.
                     </Badge>
                   </td>
                   <td className="py-3 px-4">
-                    <Badge variant={product.isActive ? 'success' : 'error'}>
-                      {product.isActive ? 'Активен' : 'Неактивен'}
+                    <Badge variant={product.is_active ? 'success' : 'error'}>
+                      {product.is_active ? 'Активен' : 'Неактивен'}
                     </Badge>
                   </td>
                   <td className="py-3 px-4">

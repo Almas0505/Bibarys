@@ -142,7 +142,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # Import and include routers
-from app.api.v1 import auth, products, cart, orders, reviews, wishlist, payments, admin, seller, analytics, upload, websocket as ws
+from app.api.v1 import auth, products, cart, orders, reviews, wishlist, payments, admin, seller, analytics, upload, websocket as ws, wallet
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
@@ -156,6 +156,7 @@ app.include_router(seller.router, prefix="/api/v1/seller", tags=["Seller"])
 app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
 app.include_router(upload.router, prefix="/api/v1/upload", tags=["Upload"])
 app.include_router(ws.router, prefix="/api/v1", tags=["WebSocket"])
+app.include_router(wallet.router, prefix="/api/v1/wallet", tags=["Wallet"])
 
 
 if __name__ == "__main__":

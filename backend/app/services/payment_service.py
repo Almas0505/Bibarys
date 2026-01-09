@@ -41,7 +41,55 @@ class PaymentService:
         if existing_payment and existing_payment.status == PaymentStatus.SUCCESS:
             raise BadRequestException(detail="Order is already paid")
         
-        # Generate transaction ID
+        # Handle wallet payment
+        if payment_data.method == PaymentMethod.WALLET:
+            from app.db.models import User, Transaction
+            
+            # Get user
+            user = db.query(User).filter(User.id == user_id).first()
+            
+            if not user:
+                raise NotFoundException(detail="User not found")
+            
+            # Check if user has sufficient balance
+            if user.balance < order.total_price:
+                raise BadRequestException(
+                    detail=f"Insufficient balance. Required: {order.total_price} ₸, Available: {user.balance} ₸"
+                )
+            
+            # Deduct from user balance
+            user.balance -= order.total_price
+            
+            # Create transaction record
+            transaction = Transaction(
+                user_id=user.id,
+                amount=-order.total_price,
+                type="purchase",
+                description=f"Оплата заказа #{order.id}",
+                balance_after=user.balance
+            )
+            db.add(transaction)
+            
+            # Create successful payment record
+            payment = Payment(
+                order_id=order.id,
+                amount=order.total_price,
+                method=payment_data.method,
+                status=PaymentStatus.SUCCESS,
+                transaction_id=f"WALLET-{order.id}-{user.id}",
+            )
+            
+            db.add(payment)
+            
+            # Update order status
+            order.status = OrderStatus.PROCESSING
+            
+            db.commit()
+            db.refresh(payment)
+            
+            return payment
+        
+        # Generate transaction ID for other payment methods
         transaction_id = f"TXN-{uuid.uuid4().hex[:16].upper()}"
         
         # Demo payment processing

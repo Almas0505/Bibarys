@@ -4,43 +4,23 @@
 
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { wishlistService } from '../services';
 import { addToCart } from '../store/cartSlice';
-import { useAppDispatch } from '../hooks/redux';
-import { useState } from 'react';
-import { Product } from '../types';
+import { fetchWishlist, removeFromWishlist as removeFromWishlistAction } from '../store/wishlistSlice';
+import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { formatPrice } from '../utils/helpers';
 import { PLACEHOLDER_IMAGE } from '../utils/constants';
 
 export default function WishlistPage() {
   const dispatch = useAppDispatch();
-  const [wishlist, setWishlist] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { items: wishlist, isLoading } = useAppSelector((state) => state.wishlist);
 
   useEffect(() => {
-    loadWishlist();
-  }, []);
-
-  const loadWishlist = async () => {
-    try {
-      setIsLoading(true);
-      const data = await wishlistService.getWishlist();
-      setWishlist(data);
-    } catch (error) {
-      console.error('Failed to load wishlist:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    dispatch(fetchWishlist());
+  }, [dispatch]);
 
   const handleRemove = async (productId: number) => {
-    try {
-      await wishlistService.removeFromWishlist(productId);
-      setWishlist(wishlist.filter((p) => p.id !== productId));
-    } catch (error) {
-      console.error('Failed to remove from wishlist:', error);
-    }
+    await dispatch(removeFromWishlistAction(productId));
   };
 
   const handleAddToCart = async (productId: number) => {
@@ -71,20 +51,20 @@ export default function WishlistPage() {
       <h1 className="text-3xl font-bold mb-8">Избранное</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {wishlist.map((product) => (
-          <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+        {wishlist.map((item) => (
+          <div key={item.id} className="bg-white rounded-lg shadow-md overflow-hidden">
             <div className="relative">
-              <Link to={`/product/${product.id}`}>
+              <Link to={`/product/${item.product_id}`}>
                 <div className="aspect-square overflow-hidden">
                   <img
-                    src={product.image_urls[0] || PLACEHOLDER_IMAGE}
-                    alt={product.name}
+                    src={item.product_image || PLACEHOLDER_IMAGE}
+                    alt={item.product_name}
                     className="w-full h-full object-cover hover:scale-110 transition-transform"
                   />
                 </div>
               </Link>
               <button
-                onClick={() => handleRemove(product.id)}
+                onClick={() => handleRemove(item.product_id)}
                 className="absolute top-2 right-2 bg-white rounded-full p-2 shadow-md hover:bg-red-50"
                 aria-label="Удалить из избранного"
               >
@@ -95,22 +75,22 @@ export default function WishlistPage() {
             </div>
 
             <div className="p-4">
-              <Link to={`/product/${product.id}`}>
+              <Link to={`/product/${item.product_id}`}>
                 <h3 className="font-semibold text-lg mb-2 line-clamp-2 hover:text-primary-600">
-                  {product.name}
+                  {item.product_name}
                 </h3>
               </Link>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-2xl font-bold text-primary-600">
-                  {formatPrice(product.price)}
+                  {formatPrice(item.product_price)}
                 </span>
                 <div className="flex items-center text-sm text-gray-600">
                   <span className="text-yellow-400 mr-1">★</span>
-                  {product.rating.toFixed(1)}
+                  {item.product_rating.toFixed(1)}
                 </div>
               </div>
               <button
-                onClick={() => handleAddToCart(product.id)}
+                onClick={() => handleAddToCart(item.product_id)}
                 className="w-full bg-primary-600 text-white py-2 rounded-lg hover:bg-primary-700"
               >
                 В корзину

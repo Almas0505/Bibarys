@@ -34,16 +34,26 @@ def test_db():
 
 @pytest.fixture(scope="function")
 def client(test_db):
-    """Create test client"""
+    """Create test client with rate limiting disabled"""
     def override_get_db():
         try:
             yield test_db
         finally:
             test_db.close()
     
+    # Store original enabled state and disable rate limiting for tests
+    original_enabled = app.state.limiter.enabled
+    app.state.limiter.enabled = False
+    
     app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
+    
+    test_client = TestClient(app)
+    yield test_client
+    
     app.dependency_overrides.clear()
+    
+    # Restore original enabled state
+    app.state.limiter.enabled = original_enabled
 
 
 @pytest.fixture

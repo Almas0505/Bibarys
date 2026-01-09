@@ -6,10 +6,11 @@
  * Format price to display with currency
  */
 export const formatPrice = (price: number): string => {
-  return new Intl.NumberFormat('ru-RU', {
+  return new Intl.NumberFormat('ru-KZ', {
     style: 'currency',
-    currency: 'RUB',
+    currency: 'KZT',
     minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(price);
 };
 

@@ -1,23 +1,88 @@
+import { useEffect, useState } from 'react';
+import { adminService } from '../../services/admin.service';
+import { formatPrice } from '../../utils/helpers';
+
+interface DashboardStats {
+  total_users: number;
+  total_products: number;
+  total_orders: number;
+  total_revenue: number;
+  pending_orders: number;
+  active_sellers: number;
+}
+
+interface RecentOrder {
+  id: number;
+  user?: {
+    email: string;
+  };
+  total_price: number;
+  status: string;
+}
+
 export default function AdminDashboard() {
-  // Mock data - in real app, fetch from API
-  const stats = {
-    totalUsers: 1234,
-    totalOrders: 567,
-    totalProducts: 2345,
-    totalRevenue: 1234567,
-    userGrowth: 12,
-    orderGrowth: 8,
-    productGrowth: 5,
-    revenueGrowth: 18,
+  const [stats, setStats] = useState<DashboardStats>({
+    total_users: 0,
+    total_orders: 0,
+    total_products: 0,
+    total_revenue: 0,
+    pending_orders: 0,
+    active_sellers: 0,
+  });
+  const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch dashboard stats
+      const dashboardData = await adminService.getDashboard();
+      setStats(dashboardData);
+      
+      // Fetch recent orders
+      const ordersData = await adminService.getAllOrders(1, 5);
+      setRecentOrders(ordersData.items || []);
+    } catch (err: any) {
+      console.error('Error loading dashboard data:', err);
+      setError(err.response?.data?.detail || 'Ошибка загрузки данных');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const recentOrders = [
-    { id: 1001, user: 'user1@example.com', amount: 5430, status: 'Оплачен' },
-    { id: 1002, user: 'user2@example.com', amount: 8920, status: 'Оплачен' },
-    { id: 1003, user: 'user3@example.com', amount: 3210, status: 'В обработке' },
-    { id: 1004, user: 'user4@example.com', amount: 12300, status: 'Оплачен' },
-    { id: 1005, user: 'user5@example.com', amount: 6780, status: 'Доставлен' },
-  ];
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: 'Ожидает',
+      processing: 'В обработке',
+      shipped: 'Отправлен',
+      delivered: 'Доставлен',
+      cancelled: 'Отменён',
+    };
+    return labels[status] || status;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="text-gray-600">Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+        {error}
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -27,52 +92,51 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 text-sm">Пользователи</p>
-              <p className="text-3xl font-bold">{stats.totalUsers.toLocaleString()}</p>
+              <p className="text-3xl font-bold">{stats.total_users.toLocaleString()}</p>
             </div>
             <div className="bg-blue-100 p-3 rounded-full">
               <span className="text-2xl">👥</span>
             </div>
           </div>
-          <p className="text-green-600 text-sm mt-2">+{stats.userGrowth}% за месяц</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 text-sm">Заказы</p>
-              <p className="text-3xl font-bold">{stats.totalOrders.toLocaleString()}</p>
+              <p className="text-3xl font-bold">{stats.total_orders.toLocaleString()}</p>
             </div>
             <div className="bg-green-100 p-3 rounded-full">
               <span className="text-2xl">📦</span>
             </div>
           </div>
-          <p className="text-green-600 text-sm mt-2">+{stats.orderGrowth}% за месяц</p>
+          {stats.pending_orders > 0 && (
+            <p className="text-orange-600 text-sm mt-2">Ожидает: {stats.pending_orders}</p>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 text-sm">Товары</p>
-              <p className="text-3xl font-bold">{stats.totalProducts.toLocaleString()}</p>
+              <p className="text-3xl font-bold">{stats.total_products.toLocaleString()}</p>
             </div>
             <div className="bg-purple-100 p-3 rounded-full">
               <span className="text-2xl">📱</span>
             </div>
           </div>
-          <p className="text-green-600 text-sm mt-2">+{stats.productGrowth}% за месяц</p>
         </div>
 
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 text-sm">Выручка</p>
-              <p className="text-3xl font-bold">₽{(stats.totalRevenue / 1000000).toFixed(1)}M</p>
+              <p className="text-3xl font-bold">{formatPrice(stats.total_revenue)}</p>
             </div>
             <div className="bg-yellow-100 p-3 rounded-full">
               <span className="text-2xl">💰</span>
             </div>
           </div>
-          <p className="text-green-600 text-sm mt-2">+{stats.revenueGrowth}% за месяц</p>
         </div>
       </div>
 
@@ -91,23 +155,31 @@ export default function AdminDashboard() {
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((order) => (
-                <tr key={order.id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 px-4 font-semibold">#{order.id}</td>
-                  <td className="py-3 px-4 text-gray-600">{order.user}</td>
-                  <td className="py-3 px-4 font-bold">₽{order.amount.toLocaleString()}</td>
-                  <td className="py-3 px-4">
-                    <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <button className="text-primary-600 hover:underline text-sm">
-                      Посмотреть
-                    </button>
+              {recentOrders.length > 0 ? (
+                recentOrders.map((order) => (
+                  <tr key={order.id} className="border-b hover:bg-gray-50">
+                    <td className="py-3 px-4 font-semibold">#{order.id}</td>
+                    <td className="py-3 px-4 text-gray-600">{order.user?.email || 'N/A'}</td>
+                    <td className="py-3 px-4 font-bold">{formatPrice(order.total_price)}</td>
+                    <td className="py-3 px-4">
+                      <span className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded">
+                        {getStatusLabel(order.status)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      <button className="text-primary-600 hover:underline text-sm">
+                        Посмотреть
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-500">
+                    Заказы отсутствуют
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

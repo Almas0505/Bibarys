@@ -1,20 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Input from '../common/Input';
 import Select from '../common/Select';
 import Badge from '../common/Badge';
+import { adminService } from '../../services/admin.service';
+import { formatPrice, formatDateTime } from '../../utils/helpers';
+
+interface Order {
+  id: number;
+  user?: {
+    email: string;
+  };
+  total_price: number;
+  status: string;
+  created_at: string;
+}
 
 export default function OrdersManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-
-  // Mock data - in real app, fetch from API
-  const orders = [
-    { id: 1001, customer: 'user1@example.com', total: 15430, status: 'delivered', date: '2024-03-15 14:30' },
-    { id: 1002, customer: 'user2@example.com', total: 8920, status: 'shipped', date: '2024-03-16 09:15' },
-    { id: 1003, customer: 'user3@example.com', total: 3210, status: 'processing', date: '2024-03-16 11:45' },
-    { id: 1004, customer: 'user4@example.com', total: 12300, status: 'pending', date: '2024-03-16 16:20' },
-    { id: 1005, customer: 'user5@example.com', total: 6780, status: 'cancelled', date: '2024-03-14 13:00' },
-  ];
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const statusOptions = [
     { value: 'all', label: 'Все статусы' },
@@ -25,12 +31,30 @@ export default function OrdersManagement() {
     { value: 'cancelled', label: 'Отменён' },
   ];
 
+  useEffect(() => {
+    loadOrders();
+  }, [statusFilter]);
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const status = statusFilter === 'all' ? undefined : statusFilter;
+      const data = await adminService.getAllOrders(1, 100, status);
+      setOrders(data.items || []);
+    } catch (err: any) {
+      console.error('Error loading orders:', err);
+      setError(err.response?.data?.detail || 'Ошибка загрузки заказов');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredOrders = orders.filter(order => {
     const matchesSearch = 
       order.id.toString().includes(searchQuery) ||
-      order.customer.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    return matchesSearch && matchesStatus;
+      (order.user?.email || '').toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
   });
 
   const getStatusBadge = (status: string) => {
@@ -54,6 +78,24 @@ export default function OrdersManagement() {
     };
     return labels[status] || status;
   };
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="text-center py-8 text-gray-500">Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
+          {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -94,14 +136,14 @@ export default function OrdersManagement() {
               {filteredOrders.map((order) => (
                 <tr key={order.id} className="border-b hover:bg-gray-50">
                   <td className="py-3 px-4 font-semibold">#{order.id}</td>
-                  <td className="py-3 px-4 text-gray-600">{order.customer}</td>
-                  <td className="py-3 px-4 font-bold">₽{order.total.toLocaleString()}</td>
+                  <td className="py-3 px-4 text-gray-600">{order.user?.email || 'N/A'}</td>
+                  <td className="py-3 px-4 font-bold">{formatPrice(order.total_price)}</td>
                   <td className="py-3 px-4">
                     <Badge variant={getStatusBadge(order.status)}>
                       {getStatusLabel(order.status)}
                     </Badge>
                   </td>
-                  <td className="py-3 px-4 text-gray-600">{order.date}</td>
+                  <td className="py-3 px-4 text-gray-600">{formatDateTime(order.created_at)}</td>
                   <td className="py-3 px-4">
                     <div className="flex gap-2">
                       <button className="text-blue-600 hover:underline text-sm">

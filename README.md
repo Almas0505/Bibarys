@@ -260,14 +260,169 @@ DATABASE_URL=postgresql://user:password@localhost:5432/ecommerce
 
 ## 🚧 TODO
 
-- [ ] Frontend (React + TypeScript + Redux)
-- [ ] WebSocket для real-time уведомлений
+- [x] Frontend (React + TypeScript + Redux)
+- [x] WebSocket для real-time уведомлений
 - [ ] Реальная интеграция платежей (Stripe)
 - [ ] Email уведомления (SendGrid)
-- [ ] Загрузка изображений (S3)
-- [ ] Unit и integration тесты
+- [x] Загрузка изображений
+- [x] Unit и integration тесты
 - [ ] CI/CD pipeline
-- [ ] Деплой (Docker + Kubernetes)
+- [x] Production deployment setup (Docker + Nginx)
+
+## 🚀 Production Deployment
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- Domain name configured (for production)
+- SSL certificates (Let's Encrypt recommended)
+
+### Step 1: Configure Environment
+
+Copy the production environment template:
+
+```bash
+cp .env.production.example .env.production
+```
+
+Edit `.env.production` with your production values:
+- Set a strong `SECRET_KEY` (min 32 characters)
+- Configure `DATABASE_URL` for PostgreSQL
+- Set your domain in `CORS_ORIGINS`
+- Configure email settings (optional)
+
+### Step 2: Build Frontend
+
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+This creates an optimized production build in `frontend/dist/`.
+
+### Step 3: Deploy with Docker Compose
+
+```bash
+# Use production compose file
+docker-compose -f docker-compose.prod.yml up -d
+
+# Check logs
+docker-compose -f docker-compose.prod.yml logs -f
+
+# Stop services
+docker-compose -f docker-compose.prod.yml down
+```
+
+### Step 4: Configure SSL (Optional but Recommended)
+
+For HTTPS, update `nginx/nginx.conf` to include SSL configuration:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name yourdomain.com;
+    
+    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+    
+    # ... rest of config
+}
+
+server {
+    listen 80;
+    server_name yourdomain.com;
+    return 301 https://$server_name$request_uri;
+}
+```
+
+### Architecture
+
+```
+┌─────────────┐
+│   Nginx     │  (Port 80/443)
+│  (Reverse   │
+│   Proxy)    │
+└──────┬──────┘
+       │
+       ├─────────────────┐
+       │                 │
+       ▼                 ▼
+┌──────────┐      ┌──────────┐
+│ Frontend │      │ Backend  │
+│  (Static │      │ (FastAPI)│
+│   Files) │      │ Port 8000│
+└──────────┘      └─────┬────┘
+                        │
+                        ├──────┬────────┐
+                        │      │        │
+                        ▼      ▼        ▼
+                   ┌────────┐ ┌─────┐ ┌─────┐
+                   │Postgres│ │Redis│ │Files│
+                   └────────┘ └─────┘ └─────┘
+```
+
+### Production Features
+
+✅ **Backend (FastAPI)**
+- 50+ REST API endpoints
+- JWT authentication with refresh tokens
+- Role-based access control (Admin, Seller, Customer)
+- WebSocket support for real-time notifications
+- File upload handling
+- Rate limiting
+- Request logging
+- Health check endpoint
+
+✅ **Frontend (React + TypeScript)**
+- 25+ reusable UI components
+- 14 pages (Home, Products, Cart, Checkout, etc.)
+- Redux Toolkit for state management
+- Responsive design with Tailwind CSS
+- Protected routes
+- Form validation
+
+✅ **Features**
+- Product management (CRUD)
+- Shopping cart
+- Wishlist
+- Order management
+- Product reviews with verified purchase badges
+- Payment integration
+- User profiles
+- Seller dashboard with analytics
+- Admin panel
+
+✅ **Security**
+- Password hashing with bcrypt
+- JWT token authentication
+- CORS protection
+- Rate limiting
+- Input validation with Pydantic
+- SQL injection protection via ORM
+
+### Monitoring and Maintenance
+
+**Health Check:**
+```bash
+curl http://localhost/health
+```
+
+**View Logs:**
+```bash
+docker-compose -f docker-compose.prod.yml logs backend
+docker-compose -f docker-compose.prod.yml logs nginx
+```
+
+**Database Backup:**
+```bash
+docker exec -t bibarys-db pg_dump -U postgres bibarys > backup.sql
+```
+
+**Database Restore:**
+```bash
+docker exec -i bibarys-db psql -U postgres bibarys < backup.sql
+```
 
 ## 📄 Лицензия
 

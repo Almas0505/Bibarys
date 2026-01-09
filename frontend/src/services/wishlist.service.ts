@@ -3,14 +3,23 @@
  */
 
 import api from './api';
-import { Product } from '../types';
+
+export interface WishlistItem {
+  id: number;
+  product_id: number;
+  product_name: string;
+  product_price: number;
+  product_image: string;
+  product_rating: number;
+  product_quantity: number;
+}
 
 export const wishlistService = {
   /**
    * Get wishlist
    */
-  getWishlist: async (): Promise<Product[]> => {
-    const response = await api.get<Product[]>('/wishlist');
+  getWishlist: async (): Promise<WishlistItem[]> => {
+    const response = await api.get<WishlistItem[]>('/wishlist');
     return response.data;
   },
 
@@ -29,14 +38,9 @@ export const wishlistService = {
   },
 
   /**
-   * Check if product is in wishlist
+   * Clear all items from wishlist
    */
-  isInWishlist: async (productId: number): Promise<boolean> => {
-    try {
-      const wishlist = await wishlistService.getWishlist();
-      return wishlist.some(product => product.id === productId);
-    } catch (error) {
-      return false;
-    }
+  clearWishlist: async (): Promise<void> => {
+    await api.delete('/wishlist');
   },
 };

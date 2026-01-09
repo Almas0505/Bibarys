@@ -102,7 +102,7 @@ def create_order(
 
 
 @router.put("/{order_id}/status", response_model=OrderResponse)
-def update_order_status(
+async def update_order_status(
     order_id: int,
     order_data: OrderUpdate,
     current_user: User = Depends(get_current_user),
@@ -116,6 +116,22 @@ def update_order_status(
     """
     is_admin = current_user.role == UserRole.ADMIN
     order = OrderService.update_order_status(db, order_id, order_data, current_user.id, is_admin)
+    
+    # Send WebSocket notification
+    from app.core.websocket import manager
+    try:
+        await manager.send_personal_message(
+            {
+                "type": "order_status_update",
+                "order_id": order.id,
+                "status": order.status.value,
+                "message": f"Your order #{order.id} status has been updated to {order.status.value}"
+            },
+            user_id=order.user_id
+        )
+    except Exception:
+        # WebSocket errors should not prevent status updates
+        pass
     
     # Send status update email
     from app.services.email_service import EmailService

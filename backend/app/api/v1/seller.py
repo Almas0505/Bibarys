@@ -10,9 +10,17 @@ from app.schemas.product import ProductResponse
 from app.schemas.order import OrderResponse, OrderListResponse
 from app.api.v1 import require_seller_or_admin
 from pydantic import BaseModel
+from datetime import datetime, timedelta
+from sqlalchemy import func
 import math
 
 router = APIRouter()
+
+
+class TopProduct(BaseModel):
+    id: int
+    name: str
+    total_sold: int
 
 
 class SellerStats(BaseModel):
@@ -24,7 +32,17 @@ class SellerStats(BaseModel):
     pending_orders: int
 
 
-@router.get("/analytics", response_model=SellerStats)
+class SellerAnalytics(BaseModel):
+    """Enhanced seller analytics"""
+    total_products: int
+    total_sales: float
+    pending_orders: int
+    low_stock_count: int
+    monthly_sales: float
+    top_products: List[TopProduct]
+
+
+@router.get("/analytics", response_model=SellerAnalytics)
 def get_seller_analytics(
     current_user: User = Depends(require_seller_or_admin),
     db: Session = Depends(get_db)
@@ -35,7 +53,78 @@ def get_seller_analytics(
     Requires seller or admin role
     """
     from app.core.constants import OrderStatus
-    from sqlalchemy import func
+    
+    # Total products
+    total_products = db.query(Product).filter(Product.seller_id == current_user.id).count()
+    
+    # Total sales (from completed orders)
+    total_sales = db.query(func.sum(OrderItem.price_at_purchase * OrderItem.quantity)).join(
+        Order
+    ).filter(
+        OrderItem.seller_id == current_user.id,
+        Order.status.in_([OrderStatus.DELIVERED, OrderStatus.SHIPPED])
+    ).scalar() or 0.0
+    
+    # Pending orders count
+    pending_orders = db.query(OrderItem).join(Order).filter(
+        OrderItem.seller_id == current_user.id,
+        Order.status == OrderStatus.PENDING
+    ).count()
+    
+    # Low stock products (quantity < 10)
+    low_stock_count = db.query(Product).filter(
+        Product.seller_id == current_user.id,
+        Product.quantity < 10,
+        Product.is_active == True
+    ).count()
+    
+    # Sales this month
+    first_day_of_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    monthly_sales = db.query(func.sum(OrderItem.price_at_purchase * OrderItem.quantity)).join(
+        Order
+    ).filter(
+        OrderItem.seller_id == current_user.id,
+        Order.created_at >= first_day_of_month,
+        Order.status.in_([OrderStatus.DELIVERED, OrderStatus.SHIPPED])
+    ).scalar() or 0.0
+    
+    # Top selling products (last 30 days)
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+    top_products = db.query(
+        Product.id,
+        Product.name,
+        func.sum(OrderItem.quantity).label('total_sold')
+    ).join(OrderItem).join(Order).filter(
+        Product.seller_id == current_user.id,
+        Order.created_at >= thirty_days_ago
+    ).group_by(Product.id, Product.name).order_by(
+        func.sum(OrderItem.quantity).desc()
+    ).limit(5).all()
+    
+    return SellerAnalytics(
+        total_products=total_products,
+        total_sales=total_sales,
+        pending_orders=pending_orders,
+        low_stock_count=low_stock_count,
+        monthly_sales=monthly_sales,
+        top_products=[
+            TopProduct(id=p.id, name=p.name, total_sold=p.total_sold)
+            for p in top_products
+        ]
+    )
+
+
+@router.get("/stats", response_model=SellerStats)
+def get_seller_stats(
+    current_user: User = Depends(require_seller_or_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Get basic seller statistics (legacy endpoint)
+    
+    Requires seller or admin role
+    """
+    from app.core.constants import OrderStatus
     
     # Get products stats
     total_products = db.query(Product).filter(Product.seller_id == current_user.id).count()

@@ -6,33 +6,50 @@ from sqlalchemy.orm import Session
 from typing import List
 from app.db.session import get_db
 from app.db.models import User, Wishlist, Product
-from app.schemas.product import ProductResponse
 from app.schemas.common import MessageResponse
-from app.core.exceptions import NotFoundException, BadRequestException
+from app.core.exceptions import NotFoundException
 from app.api.v1 import get_current_user
+from pydantic import BaseModel
 
 router = APIRouter()
 
 
-@router.get("", response_model=List[ProductResponse])
+class WishlistItemResponse(BaseModel):
+    id: int
+    product_id: int
+    product_name: str
+    product_price: float
+    product_image: str
+    product_rating: float
+    product_quantity: int
+    
+    class Config:
+        from_attributes = True
+
+
+@router.get("", response_model=List[WishlistItemResponse])
 def get_wishlist(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Get current user's wishlist
+    """Get current user's wishlist"""
+    items = db.query(Wishlist).filter(Wishlist.user_id == current_user.id).all()
     
-    Returns list of products
-    """
-    wishlist_items = db.query(Wishlist).filter(Wishlist.user_id == current_user.id).all()
-    
-    products = []
-    for item in wishlist_items:
+    result = []
+    for item in items:
         product = db.query(Product).filter(Product.id == item.product_id).first()
         if product:
-            products.append(product)
+            result.append(WishlistItemResponse(
+                id=item.id,
+                product_id=product.id,
+                product_name=product.name,
+                product_price=product.price,
+                product_image=product.image_urls[0] if product.image_urls and len(product.image_urls) > 0 else "",
+                product_rating=product.rating,
+                product_quantity=product.quantity
+            ))
     
-    return products
+    return result
 
 
 @router.post("/{product_id}", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
@@ -41,12 +58,9 @@ def add_to_wishlist(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Add product to wishlist
-    """
+    """Add product to wishlist"""
     # Check if product exists
     product = db.query(Product).filter(Product.id == product_id).first()
-    
     if not product:
         raise NotFoundException(detail="Product not found")
     
@@ -57,18 +71,17 @@ def add_to_wishlist(
     ).first()
     
     if existing:
-        raise BadRequestException(detail="Product already in wishlist")
+        return MessageResponse(message="Product already in wishlist")
     
     # Add to wishlist
     wishlist_item = Wishlist(
         user_id=current_user.id,
         product_id=product_id
     )
-    
     db.add(wishlist_item)
     db.commit()
     
-    return MessageResponse(message="Product added to wishlist successfully")
+    return MessageResponse(message="Product added to wishlist")
 
 
 @router.delete("/{product_id}", response_model=MessageResponse)
@@ -77,35 +90,28 @@ def remove_from_wishlist(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Remove product from wishlist
-    """
-    wishlist_item = db.query(Wishlist).filter(
+    """Remove product from wishlist"""
+    item = db.query(Wishlist).filter(
         Wishlist.user_id == current_user.id,
         Wishlist.product_id == product_id
     ).first()
     
-    if not wishlist_item:
+    if not item:
         raise NotFoundException(detail="Product not in wishlist")
     
-    db.delete(wishlist_item)
+    db.delete(item)
     db.commit()
     
-    return MessageResponse(message="Product removed from wishlist successfully")
+    return MessageResponse(message="Product removed from wishlist")
 
 
-@router.get("/check/{product_id}")
-def check_in_wishlist(
-    product_id: int,
+@router.delete("", response_model=MessageResponse)
+def clear_wishlist(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """
-    Check if product is in wishlist
-    """
-    exists = db.query(Wishlist).filter(
-        Wishlist.user_id == current_user.id,
-        Wishlist.product_id == product_id
-    ).first() is not None
+    """Clear all items from wishlist"""
+    db.query(Wishlist).filter(Wishlist.user_id == current_user.id).delete()
+    db.commit()
     
-    return {"in_wishlist": exists}
+    return MessageResponse(message="Wishlist cleared")

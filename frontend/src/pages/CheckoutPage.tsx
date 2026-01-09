@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import CheckoutStepper from '../components/checkout/CheckoutStepper';
 import OrderSummary from '../components/checkout/OrderSummary';
 import Input from '../components/common/Input';
-import Radio from '../components/common/Radio';
+import Radio from '../common/Radio';
 import Button from '../components/common/Button';
 import { useToast } from '../components/common/ToastContainer';
 import { createOrder } from '../store/orderSlice';
+import { walletService } from '../services/wallet.service';
+import { formatPrice } from '../utils/helpers';
 import { 
   isValidEmail, 
   isValidPhone, 
@@ -48,6 +50,7 @@ export default function CheckoutPage() {
   const { user } = useAppSelector(state => state.auth);
   
   const [currentStep, setCurrentStep] = useState(1);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: user?.first_name || '',
     lastName: user?.last_name || '',
@@ -67,6 +70,22 @@ export default function CheckoutPage() {
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Load wallet balance when component mounts
+  useEffect(() => {
+    const loadWalletBalance = async () => {
+      try {
+        const data = await walletService.getBalance();
+        setWalletBalance(data.balance);
+      } catch (error) {
+        console.error('Error loading wallet balance:', error);
+      }
+    };
+    
+    if (user) {
+      loadWalletBalance();
+    }
+  }, [user]);
   
   // Delivery options with prices
   const deliveryOptions = [
@@ -111,11 +130,22 @@ export default function CheckoutPage() {
   
   // Validation for Step 3 (Payment)
   const validateStep3 = (): boolean => {
-    if (formData.paymentMethod !== 'card') {
+    const newErrors: Record<string, string> = {};
+    
+    // Check wallet balance if paying with wallet
+    if (formData.paymentMethod === 'wallet') {
+      if (walletBalance < totalCost) {
+        newErrors.payment = `Недостаточно средств в кошельке`;
+        showToast('error', 'Недостаточно средств в кошельке');
+        setErrors(newErrors);
+        return false;
+      }
       return true;
     }
     
-    const newErrors: Record<string, string> = {};
+    if (formData.paymentMethod !== 'card') {
+      return true;
+    }
     
     if (!isValidCardNumber(formData.cardNumber)) {
       newErrors.cardNumber = 'Неверный номер карты';
@@ -341,9 +371,45 @@ export default function CheckoutPage() {
                     name="payment"
                     checked={formData.paymentMethod === 'wallet'}
                     onChange={() => setFormData({ ...formData, paymentMethod: 'wallet' })}
-                    label="Электронный кошелек"
+                    label="Виртуальный кошелек"
                   />
                 </div>
+                
+                {formData.paymentMethod === 'wallet' && (
+                  <div className="border-t pt-6">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-gray-700 font-medium">Баланс кошелька:</span>
+                        <span className="text-2xl font-bold text-primary-600">
+                          {formatPrice(walletBalance)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-700 font-medium">К оплате:</span>
+                        <span className="text-xl font-bold">
+                          {formatPrice(totalCost)}
+                        </span>
+                      </div>
+                      {walletBalance < totalCost && (
+                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
+                          <p className="text-red-800 text-sm font-medium">
+                            ⚠️ Недостаточно средств
+                          </p>
+                          <p className="text-red-600 text-xs mt-1">
+                            Пополните кошелек на {formatPrice(totalCost - walletBalance)} или выберите другой способ оплаты
+                          </p>
+                        </div>
+                      )}
+                      {walletBalance >= totalCost && (
+                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
+                          <p className="text-green-800 text-sm font-medium">
+                            ✓ Достаточно средств для оплаты
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 
                 {formData.paymentMethod === 'card' && (
                   <div className="border-t pt-6">

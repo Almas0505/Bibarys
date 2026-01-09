@@ -11,6 +11,7 @@ import Button from '../components/common/Button';
 import { useToast } from '../components/common/ToastContainer';
 import { isValidPassword, doPasswordsMatch } from '../utils/validators';
 import { getInitials } from '../utils/helpers';
+import WalletCard from '../components/wallet/WalletCard';
 
 export default function ProfilePage() {
   const { user, isLoading } = useAppSelector((state) => state.auth);
@@ -237,6 +238,12 @@ export default function ProfilePage() {
 
         {/* Sidebar */}
         <div className="lg:col-span-1">
+          {/* Wallet Card */}
+          <div className="mb-6">
+            <WalletCard />
+          </div>
+
+          {/* Account Stats */}
           <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-bold mb-4">Статистика</h2>
             <div className="space-y-3">

@@ -11,6 +11,14 @@ import { formatPrice } from '../utils/helpers';
 import { PLACEHOLDER_IMAGE, PRODUCT_CATEGORIES } from '../utils/constants';
 import api from '../services/api';
 
+interface TopCustomer {
+  user_id: number;
+  name: string;
+  email: string;
+  orders_count: number;
+  total_spent: number;
+}
+
 export default function SellerPage() {
   const dispatch = useAppDispatch();
   const { products, isLoading } = useAppSelector((state) => state.product);
@@ -18,6 +26,9 @@ export default function SellerPage() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProduct, setEditProduct] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'products' | 'customers'>('products');
+  const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
   const [stats, setStats] = useState({
     totalProducts: 0,
     activeProducts: 0,
@@ -30,8 +41,11 @@ export default function SellerPage() {
     if (user?.id) {
       loadSellerProducts();
       loadSellerStats();
+      if (activeTab === 'customers') {
+        loadTopCustomers();
+      }
     }
-  }, [user?.id]);
+  }, [user?.id, activeTab]);
 
   const loadSellerProducts = async () => {
     try {
@@ -48,6 +62,20 @@ export default function SellerPage() {
       setStats(response.data);
     } catch (error) {
       console.error('Error loading stats:', error);
+    }
+  };
+
+  const loadTopCustomers = async () => {
+    try {
+      setLoadingCustomers(true);
+      const response = await api.get('/api/v1/seller/top-customers', {
+        params: { limit: 10 }
+      });
+      setTopCustomers(response.data);
+    } catch (error) {
+      console.error('Error loading top customers:', error);
+    } finally {
+      setLoadingCustomers(false);
     }
   };
 
@@ -210,8 +238,107 @@ export default function SellerPage() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="border-b mb-8">
+        <nav className="flex gap-8">
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`pb-4 px-2 font-semibold ${
+              activeTab === 'products'
+                ? 'border-b-2 border-primary-600 text-primary-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Мои товары
+          </button>
+          <button
+            onClick={() => setActiveTab('customers')}
+            className={`pb-4 px-2 font-semibold ${
+              activeTab === 'customers'
+                ? 'border-b-2 border-primary-600 text-primary-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Лучшие клиенты
+          </button>
+        </nav>
+      </div>
+
+      {/* Top Customers Tab */}
+      {activeTab === 'customers' && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold">Топ-10 клиентов</h2>
+            <p className="text-sm text-gray-600 mt-1">Клиенты с наибольшими покупками</p>
+          </div>
+
+          {loadingCustomers ? (
+            <div className="p-12 text-center">
+              <div className="text-gray-500">Загрузка...</div>
+            </div>
+          ) : topCustomers.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="text-gray-400 mb-4">
+                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">Пока нет клиентов</h3>
+              <p className="text-gray-600">Когда кто-то купит ваши товары, они появятся здесь</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Имя</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Заказов</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Сумма покупок</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {topCustomers.map((customer, index) => (
+                    <tr key={customer.user_id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {index < 3 ? (
+                            <span className="text-2xl">
+                              {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                            </span>
+                          ) : (
+                            <span className="text-sm font-medium text-gray-900">{index + 1}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{customer.name}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-600">{customer.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                          {customer.orders_count} {customer.orders_count === 1 ? 'заказ' : 'заказов'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-bold text-green-600">
+                          {formatPrice(customer.total_spent)}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Products Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      {activeTab === 'products' && (
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-bold">Мои товары</h2>
         </div>
@@ -323,6 +450,7 @@ export default function SellerPage() {
           </div>
         )}
       </div>
+      )}
 
       {/* Add Product Modal */}
       {showAddModal && (

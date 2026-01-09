@@ -11,6 +11,7 @@ from app.core.exceptions import NotFoundException, BadRequestException, Forbidde
 from app.api.v1 import get_current_user
 from pydantic import BaseModel, Field
 from datetime import datetime
+from sqlalchemy import func
 import math
 
 router = APIRouter()
@@ -154,12 +155,20 @@ def create_review(
     )
     
     db.add(review)
+    db.commit()
     
-    # Update product rating
-    all_reviews = db.query(Review).filter(Review.product_id == product_id).all()
-    total_rating = sum(r.rating for r in all_reviews) + review_data.rating
-    product.rating = round(total_rating / (len(all_reviews) + 1), 2)
-    product.review_count = len(all_reviews) + 1
+    # Update product rating using SQL aggregation for better performance
+    rating_stats = db.query(
+        func.avg(Review.rating).label('avg_rating'),
+        func.count(Review.id).label('review_count')
+    ).filter(Review.product_id == product_id).first()
+    
+    if rating_stats and rating_stats.avg_rating:
+        product.rating = round(float(rating_stats.avg_rating), 2)
+        product.review_count = rating_stats.review_count
+    else:
+        product.rating = 0.0
+        product.review_count = 0
     
     db.commit()
     db.refresh(review)
@@ -200,14 +209,19 @@ def delete_review(
     product_id = review.product_id
     
     db.delete(review)
+    db.commit()
     
-    # Update product rating
-    remaining_reviews = db.query(Review).filter(Review.product_id == product_id).all()
+    # Update product rating using SQL aggregation for better performance
+    rating_stats = db.query(
+        func.avg(Review.rating).label('avg_rating'),
+        func.count(Review.id).label('review_count')
+    ).filter(Review.product_id == product_id).first()
+    
     product = db.query(Product).filter(Product.id == product_id).first()
     
-    if remaining_reviews:
-        product.rating = round(sum(r.rating for r in remaining_reviews) / len(remaining_reviews), 2)
-        product.review_count = len(remaining_reviews)
+    if rating_stats and rating_stats.avg_rating:
+        product.rating = round(float(rating_stats.avg_rating), 2)
+        product.review_count = rating_stats.review_count
     else:
         product.rating = 0.0
         product.review_count = 0

@@ -44,7 +44,7 @@ def get_wishlist(
                 product_id=product.id,
                 product_name=product.name,
                 product_price=product.price,
-                product_image=product.image_urls[0] if product.image_urls else "",
+                product_image=product.image_urls[0] if product.image_urls and len(product.image_urls) > 0 else "",
                 product_rating=product.rating,
                 product_quantity=product.quantity
             ))

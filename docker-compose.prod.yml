@@ -37,7 +37,7 @@ services:
     image: postgres:15-alpine
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=bibarys
     volumes:
       - postgres_data:/var/lib/postgresql/data

@@ -16,7 +16,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str):
         user_id_str = payload.get("sub")
         
         if not user_id_str:
-            await websocket.close(code=1008)
+            await websocket.close(code=4001)  # Custom: Authentication Error
             return
         
         user_id = int(user_id_str)

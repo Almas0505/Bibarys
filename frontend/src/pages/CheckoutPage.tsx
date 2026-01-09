@@ -4,7 +4,7 @@ import { useAppSelector, useAppDispatch } from '../hooks/redux';
 import CheckoutStepper from '../components/checkout/CheckoutStepper';
 import OrderSummary from '../components/checkout/OrderSummary';
 import Input from '../components/common/Input';
-import Radio from '../common/Radio';
+import Radio from '../components/common/Radio';
 import Button from '../components/common/Button';
 import { useToast } from '../components/common/ToastContainer';
 import { createOrder } from '../store/orderSlice';

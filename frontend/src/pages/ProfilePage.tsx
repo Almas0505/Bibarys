@@ -6,9 +6,15 @@ import { useState, FormEvent } from 'react';
 import { useAppSelector } from '../hooks/redux';
 import { USER_ROLES } from '../utils/constants';
 import LoadingSpinner from '../components/common/LoadingSpinner';
+import Input from '../components/common/Input';
+import Button from '../components/common/Button';
+import { useToast } from '../components/common/ToastContainer';
+import { isValidPassword, doPasswordsMatch } from '../utils/validators';
+import { getInitials } from '../utils/helpers';
 
 export default function ProfilePage() {
   const { user, isLoading } = useAppSelector((state) => state.auth);
+  const { showToast } = useToast();
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
@@ -17,11 +23,63 @@ export default function ProfilePage() {
     phone: user?.phone || '',
   });
 
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     // TODO: Implement profile update API call
-    alert('Профиль обновлён');
+    showToast('success', 'Профиль успешно обновлён');
     setIsEditing(false);
+  };
+
+  const handleChangePassword = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    const errors: Record<string, string> = {};
+    
+    if (!passwordData.currentPassword) {
+      errors.currentPassword = 'Введите текущий пароль';
+    }
+    
+    if (!isValidPassword(passwordData.newPassword)) {
+      errors.newPassword = 'Пароль должен содержать минимум 8 символов';
+    }
+    
+    if (!doPasswordsMatch(passwordData.newPassword, passwordData.confirmPassword)) {
+      errors.confirmPassword = 'Пароли не совпадают';
+    }
+    
+    setPasswordErrors(errors);
+    
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+    
+    setIsChangingPassword(true);
+    
+    try {
+      // TODO: Implement password change API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      showToast('success', 'Пароль успешно изменён');
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      setPasswordErrors({});
+    } catch (error: any) {
+      showToast('error', error.message || 'Ошибка при смене пароля');
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   if (isLoading || !user) {
@@ -37,7 +95,26 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Profile Info */}
         <div className="lg:col-span-2">
-          <div className="bg-white rounded-lg shadow-md p-6">
+          {/* Avatar and Basic Info */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex items-center mb-6">
+              {/* Avatar with initials */}
+              <div className="w-20 h-20 rounded-full bg-primary-600 text-white flex items-center justify-center text-2xl font-bold mr-4">
+                {user.avatar_url ? (
+                  <img src={user.avatar_url} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  getInitials(user.first_name, user.last_name)
+                )}
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold">{user.first_name} {user.last_name}</h2>
+                <p className="text-gray-600">{user.email}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Personal Data */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             {!isEditing ? (
               <>
                 <div className="flex items-center justify-between mb-6">
@@ -80,65 +157,81 @@ export default function ProfilePage() {
                 <h2 className="text-2xl font-bold mb-6">Редактировать профиль</h2>
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 mb-2">
-                      Имя
-                    </label>
-                    <input
-                      id="first_name"
-                      type="text"
-                      value={formData.first_name}
-                      onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
+                  <Input
+                    label="Имя"
+                    value={formData.first_name}
+                    onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                    required
+                  />
 
-                  <div>
-                    <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 mb-2">
-                      Фамилия
-                    </label>
-                    <input
-                      id="last_name"
-                      type="text"
-                      value={formData.last_name}
-                      onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                      required
-                    />
-                  </div>
+                  <Input
+                    label="Фамилия"
+                    value={formData.last_name}
+                    onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                    required
+                  />
 
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                      Телефон
-                    </label>
-                    <input
-                      id="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
+                  <Input
+                    label="Телефон"
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
 
                   <div className="flex space-x-4">
-                    <button
-                      type="submit"
-                      className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                    >
+                    <Button type="submit">
                       Сохранить
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="secondary"
                       onClick={() => setIsEditing(false)}
-                      className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
                     >
                       Отмена
-                    </button>
+                    </Button>
                   </div>
                 </form>
               </>
             )}
+          </div>
+
+          {/* Change Password Section */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-2xl font-bold mb-6">Изменить пароль</h2>
+            
+            <form onSubmit={handleChangePassword}>
+              <Input
+                type="password"
+                label="Текущий пароль"
+                value={passwordData.currentPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                error={passwordErrors.currentPassword}
+                className="mb-4"
+              />
+              
+              <Input
+                type="password"
+                label="Новый пароль"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                error={passwordErrors.newPassword}
+                helperText="Минимум 8 символов"
+                className="mb-4"
+              />
+              
+              <Input
+                type="password"
+                label="Подтвердите пароль"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                error={passwordErrors.confirmPassword}
+                className="mb-4"
+              />
+              
+              <Button type="submit" disabled={isChangingPassword}>
+                {isChangingPassword ? 'Сохранение...' : 'Изменить пароль'}
+              </Button>
+            </form>
           </div>
         </div>
 

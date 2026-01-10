@@ -18,7 +18,9 @@ export const formatPrice = (price: number): string => {
  * Format date to readable string
  */
 export const formatDate = (dateString: string): string => {
+  if (!dateString) return 'Не указано';
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Не указано';
   return new Intl.DateTimeFormat('ru-RU', {
     year: 'numeric',
     month: 'long',
@@ -30,7 +32,9 @@ export const formatDate = (dateString: string): string => {
  * Format date with time
  */
 export const formatDateTime = (dateString: string): string => {
+  if (!dateString) return 'Не указано';
   const date = new Date(dateString);
+  if (isNaN(date.getTime())) return 'Не указано';
   return new Intl.DateTimeFormat('ru-RU', {
     year: 'numeric',
     month: 'long',
@@ -109,9 +113,25 @@ export const sleep = (ms: number): Promise<void> => {
 
 /**
  * Get image URL or placeholder
+ * Converts relative paths to absolute URLs with backend server
  */
-export const getImageUrl = (url: string | undefined, placeholder: string): string => {
-  return url && url.trim() !== '' ? url : placeholder;
+export const getImageUrl = (url: string | undefined, placeholder: string = ''): string => {
+  if (!url || url.trim() === '') return placeholder;
+  
+  // If it's already a full URL (http/https), return as is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // If it's a relative path starting with /static, prepend backend URL
+  if (url.startsWith('/static')) {
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+    // Remove /api/v1 from backend URL to get base URL
+    const baseUrl = backendUrl.replace('/api/v1', '');
+    return `${baseUrl}${url}`;
+  }
+  
+  return url;
 };
 
 /**

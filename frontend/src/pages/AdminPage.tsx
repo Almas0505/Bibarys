@@ -3,6 +3,7 @@
  */
 
 import { useState } from 'react';
+import { useAppSelector } from '../hooks/redux';
 import AdminDashboard from '../components/admin/AdminDashboard';
 import UsersManagement from '../components/admin/UsersManagement';
 import ProductsManagement from '../components/admin/ProductsManagement';
@@ -15,6 +16,7 @@ type TabType = 'dashboard' | 'users' | 'products' | 'orders';
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [exportingPDF, setExportingPDF] = useState(false);
+  const { user } = useAppSelector((state) => state.auth);
 
   const handleExportPDF = async () => {
     try {
@@ -44,62 +46,68 @@ export default function AdminPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold">Панель администратора</h1>
-        
-        {activeTab === 'dashboard' && (
-          <Button
-            onClick={handleExportPDF}
-            disabled={exportingPDF}
-            variant="outline"
-          >
-            {exportingPDF ? '📄 Экспорт...' : '📄 Экспорт в PDF'}
-          </Button>
-        )}
+      {/* Admin Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-700 text-white rounded-lg shadow-lg p-6 mb-8">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">👑 Добро пожаловать, Администратор!</h1>
+            <p className="text-purple-100">Полный контроль над платформой Bibarys</p>
+          </div>
+          {activeTab === 'dashboard' && (
+            <Button
+              onClick={handleExportPDF}
+              disabled={exportingPDF}
+              variant="outline"
+              className="bg-white text-purple-600 hover:bg-purple-50"
+            >
+              {exportingPDF ? '📄 Экспорт...' : '📄 Экспорт в PDF'}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b mb-8">
-        <nav className="flex gap-8">
+      <div className="bg-white rounded-lg shadow-md mb-8">
+        <nav className="flex gap-2 p-2">
           <button
             onClick={() => setActiveTab('dashboard')}
-            className={`pb-4 px-2 font-semibold ${
+            className={`flex-1 py-3 px-4 font-semibold rounded-lg transition ${
               activeTab === 'dashboard'
-                ? 'border-b-2 border-primary-600 text-primary-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            Dashboard
+            📊 Статистика
           </button>
           <button
             onClick={() => setActiveTab('users')}
-            className={`pb-4 px-2 font-semibold ${
+            className={`flex-1 py-3 px-4 font-semibold rounded-lg transition ${
               activeTab === 'users'
-                ? 'border-b-2 border-primary-600 text-primary-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            Пользователи
+            👥 Пользователи
           </button>
           <button
             onClick={() => setActiveTab('products')}
-            className={`pb-4 px-2 font-semibold ${
+            className={`flex-1 py-3 px-4 font-semibold rounded-lg transition ${
               activeTab === 'products'
-                ? 'border-b-2 border-primary-600 text-primary-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            Товары
+            📦 Товары
           </button>
           <button
             onClick={() => setActiveTab('orders')}
-            className={`pb-4 px-2 font-semibold ${
+            className={`flex-1 py-3 px-4 font-semibold rounded-lg transition ${
               activeTab === 'orders'
-                ? 'border-b-2 border-primary-600 text-primary-600'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            Заказы
+            🛒 Заказы
           </button>
         </nav>
       </div>

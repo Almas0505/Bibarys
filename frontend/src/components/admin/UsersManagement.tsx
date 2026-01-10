@@ -37,6 +37,36 @@ export default function UsersManagement() {
     }
   };
 
+  const handleToggleStatus = async (userId: number, currentStatus: boolean) => {
+    if (!confirm(`Вы уверены, что хотите ${currentStatus ? 'деактивировать' : 'активировать'} этого пользователя?`)) {
+      return;
+    }
+    
+    try {
+      await adminService.toggleUserStatus(userId);
+      await loadUsers();
+      alert('Статус пользователя успешно изменён!');
+    } catch (err: any) {
+      console.error('Error toggling user status:', err);
+      alert(err.response?.data?.detail || 'Ошибка при изменении статуса');
+    }
+  };
+
+  const handleDeleteUser = async (userId: number, userEmail: string) => {
+    if (!confirm(`Вы уверены, что хотите удалить пользователя ${userEmail}?\nЭто действие нельзя отменить!`)) {
+      return;
+    }
+    
+    try {
+      await adminService.deleteUser(userId);
+      await loadUsers();
+      alert('Пользователь успешно удалён!');
+    } catch (err: any) {
+      console.error('Error deleting user:', err);
+      alert(err.response?.data?.detail || 'Ошибка при удалении пользователя');
+    }
+  };
+
   const filteredUsers = users.filter(user => 
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
@@ -118,11 +148,17 @@ export default function UsersManagement() {
                   <td className="py-3 px-4 text-gray-600">{formatDate(user.created_at)}</td>
                   <td className="py-3 px-4">
                     <div className="flex gap-2">
-                      <button className="text-blue-600 hover:underline text-sm">
-                        Редактировать
-                      </button>
-                      <button className={`${user.is_active ? 'text-red-600' : 'text-green-600'} hover:underline text-sm`}>
+                      <button 
+                        onClick={() => handleToggleStatus(user.id, user.is_active)}
+                        className={`${user.is_active ? 'text-orange-600 hover:text-orange-800' : 'text-green-600 hover:text-green-800'} hover:underline text-sm`}
+                      >
                         {user.is_active ? 'Деактивировать' : 'Активировать'}
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteUser(user.id, user.email)}
+                        className="text-red-600 hover:text-red-800 hover:underline text-sm"
+                      >
+                        Удалить
                       </button>
                     </div>
                   </td>

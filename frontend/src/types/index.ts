@@ -25,14 +25,15 @@ export interface User {
 
 // Product types
 export enum ProductCategory {
-  ELECTRONICS = 'electronics',
-  CLOTHING = 'clothing',
-  BOOKS = 'books',
-  HOME = 'home',
-  SPORTS = 'sports',
-  TOYS = 'toys',
-  BEAUTY = 'beauty',
-  FOOD = 'food',
+  DAIRY = 'dairy',
+  BAKERY = 'bakery',
+  BEVERAGES = 'beverages',
+  MEAT = 'meat',
+  FRUITS_VEGETABLES = 'fruits_vegetables',
+  FROZEN = 'frozen',
+  GROCERY = 'grocery',
+  SWEETS = 'sweets',
+  CANNED = 'canned',
   OTHER = 'other',
 }
 
@@ -100,6 +101,8 @@ export interface Review {
   helpful_count: number;
   verified_purchase: boolean;
   created_at: string;
+  user_first_name: string;
+  user_last_name: string;
 }
 
 // Payment types

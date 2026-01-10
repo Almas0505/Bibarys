@@ -3,16 +3,17 @@
  */
 
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { fetchProducts, setFilters } from '../store/productSlice';
 import { addToCart } from '../store/cartSlice';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { formatPrice } from '../utils/helpers';
+import { formatPrice, getImageUrl } from '../utils/helpers';
 import { PLACEHOLDER_IMAGE, PRODUCT_CATEGORIES } from '../utils/constants';
 import { ProductCategory } from '../types';
 
 export default function ShopPage() {
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { products, pagination, filters, isLoading } = useAppSelector((state) => state.product);
   const { isAuthenticated } = useAppSelector((state) => state.auth);
@@ -58,7 +59,14 @@ export default function ShopPage() {
       alert('Пожалуйста, войдите в систему');
       return;
     }
-    await dispatch(addToCart({ product_id: productId, quantity: 1 }));
+    try {
+      await dispatch(addToCart({ product_id: productId, quantity: 1 })).unwrap();
+      if (window.confirm('Товар добавлен в корзину!\n\nПерейти в корзину?')) {
+        navigate('/cart');
+      }
+    } catch (error: any) {
+      alert(error || 'Ошибка при добавлении в корзину');
+    }
   };
 
   const handlePageChange = (newPage: number) => {
@@ -173,11 +181,16 @@ export default function ShopPage() {
                 {products.map((product: any) => (
                   <div key={product.id} className="bg-white rounded-lg shadow-md overflow-hidden">
                     <Link to={`/product/${product.id}`}>
-                      <div className="aspect-square overflow-hidden">
+                      <div className="aspect-square overflow-hidden bg-gray-100">
                         <img
-                          src={product.image_urls[0] || PLACEHOLDER_IMAGE}
+                          src={getImageUrl(product.image_urls?.[0], PLACEHOLDER_IMAGE)}
                           alt={product.name}
                           className="w-full h-full object-cover hover:scale-110 transition-transform"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.onerror = null;
+                            target.src = PLACEHOLDER_IMAGE;
+                          }}
                         />
                       </div>
                     </Link>

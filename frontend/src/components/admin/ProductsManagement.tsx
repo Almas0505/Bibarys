@@ -23,14 +23,15 @@ export default function ProductsManagement() {
 
   const categories = [
     { value: 'all', label: 'Все категории' },
-    { value: 'electronics', label: 'Электроника' },
-    { value: 'clothing', label: 'Одежда' },
-    { value: 'books', label: 'Книги' },
-    { value: 'home', label: 'Дом и сад' },
-    { value: 'sports', label: 'Спорт' },
-    { value: 'toys', label: 'Игрушки' },
-    { value: 'beauty', label: 'Красота' },
-    { value: 'food', label: 'Еда' },
+    { value: 'dairy', label: 'Молочные продукты' },
+    { value: 'bakery', label: 'Хлебобулочные изделия' },
+    { value: 'beverages', label: 'Напитки' },
+    { value: 'meat', label: 'Мясо и колбасы' },
+    { value: 'fruits_vegetables', label: 'Овощи и фрукты' },
+    { value: 'frozen', label: 'Замороженные продукты' },
+    { value: 'grocery', label: 'Бакалея' },
+    { value: 'sweets', label: 'Сладости и снеки' },
+    { value: 'canned', label: 'Консервы' },
   ];
 
   useEffect(() => {
@@ -48,6 +49,36 @@ export default function ProductsManagement() {
       setError(err.response?.data?.detail || 'Ошибка загрузки товаров');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (productId: number, currentStatus: boolean) => {
+    if (!confirm(`Вы уверены, что хотите ${currentStatus ? 'деактивировать' : 'активировать'} этот товар?`)) {
+      return;
+    }
+    
+    try {
+      await adminService.toggleProductStatus(productId);
+      await loadProducts();
+      alert('Статус товара успешно изменён!');
+    } catch (err: any) {
+      console.error('Error toggling product status:', err);
+      alert(err.response?.data?.detail || 'Ошибка при изменении статуса');
+    }
+  };
+
+  const handleDeleteProduct = async (productId: number, productName: string) => {
+    if (!confirm(`Вы уверены, что хотите удалить товар "${productName}"?\nЭто действие нельзя отменить!`)) {
+      return;
+    }
+    
+    try {
+      await adminService.deleteProduct(productId);
+      await loadProducts();
+      alert('Товар успешно удалён!');
+    } catch (err: any) {
+      console.error('Error deleting product:', err);
+      alert(err.response?.data?.detail || 'Ошибка при удалении товара');
     }
   };
 
@@ -130,10 +161,16 @@ export default function ProductsManagement() {
                   </td>
                   <td className="py-3 px-4">
                     <div className="flex gap-2">
-                      <button className="text-blue-600 hover:underline text-sm">
-                        Редактировать
+                      <button 
+                        onClick={() => handleToggleStatus(product.id, product.is_active)}
+                        className="text-orange-600 hover:text-orange-800 hover:underline text-sm"
+                      >
+                        {product.is_active ? 'Деактивировать' : 'Активировать'}
                       </button>
-                      <button className="text-red-600 hover:underline text-sm">
+                      <button 
+                        onClick={() => handleDeleteProduct(product.id, product.name)}
+                        className="text-red-600 hover:text-red-800 hover:underline text-sm"
+                      >
                         Удалить
                       </button>
                     </div>

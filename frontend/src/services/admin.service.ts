@@ -75,5 +75,29 @@ export const adminService = {
   deleteUser: async (userId: number) => {
     const response = await api.delete(`/admin/users/${userId}`);
     return response.data;
+  },
+
+  /**
+   * Toggle user active status
+   */
+  toggleUserStatus: async (userId: number) => {
+    const response = await api.patch(`/admin/users/${userId}/toggle-active`);
+    return response.data;
+  },
+
+  /**
+   * Delete product
+   */
+  deleteProduct: async (productId: number) => {
+    const response = await api.delete(`/products/${productId}`);
+    return response.data;
+  },
+
+  /**
+   * Toggle product active status
+   */
+  toggleProductStatus: async (productId: number) => {
+    const response = await api.patch(`/products/${productId}/toggle-active`);
+    return response.data;
   }
 };

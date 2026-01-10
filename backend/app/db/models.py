@@ -85,6 +85,7 @@ class OrderItem(BaseModel):
     quantity = Column(Integer, nullable=False)
     price_at_purchase = Column(Float, nullable=False)  # Price at time of purchase
     seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # For seller tracking
+    is_delivered = Column(Boolean, default=False, nullable=False)  # Delivery status per seller
     
     # Relationships
     order = relationship("Order", back_populates="items")

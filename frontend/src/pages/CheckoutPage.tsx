@@ -1,51 +1,26 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAppSelector, useAppDispatch } from '../hooks/redux';
-import CheckoutStepper from '../components/checkout/CheckoutStepper';
-import OrderSummary from '../components/checkout/OrderSummary';
-import Input from '../components/common/Input';
-import Radio from '../components/common/Radio';
 import Button from '../components/common/Button';
-import { useToast } from '../components/common/ToastContainer';
+import Input from '../components/common/Input';
 import { createOrder } from '../store/orderSlice';
 import { walletService } from '../services/wallet.service';
 import { formatPrice } from '../utils/helpers';
-import { 
-  isValidEmail, 
-  isValidPhone, 
-  isValidCardNumber, 
-  isValidCardExpiry, 
-  isValidCardCVV,
-  isValidPostalCode 
-} from '../utils/validators';
-import { formatCardNumber, formatCardExpiry } from '../utils/formatters';
+import { isValidPhone } from '../utils/validators';
 
 interface CheckoutFormData {
-  // Step 1 - Address
   firstName: string;
   lastName: string;
-  email: string;
   phone: string;
+  deliveryMethod: 'pickup' | 'delivery';
   address: string;
   city: string;
-  postalCode: string;
-  saveToProfile: boolean;
-  
-  // Step 2 - Delivery
-  deliveryMethod: 'courier' | 'pickup' | 'mail';
-  
-  // Step 3 - Payment
-  paymentMethod: 'card' | 'cash' | 'wallet';
-  cardNumber: string;
-  cardExpiry: string;
-  cardCVV: string;
-  cardHolder: string;
+  paymentMethod: 'cash' | 'wallet';
 }
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { showToast } = useToast();
   const { cart } = useAppSelector(state => state.cart);
   const { user } = useAppSelector(state => state.auth);
   
@@ -54,24 +29,17 @@ export default function CheckoutPage() {
   const [formData, setFormData] = useState<CheckoutFormData>({
     firstName: user?.first_name || '',
     lastName: user?.last_name || '',
-    email: user?.email || '',
     phone: user?.phone || '',
+    deliveryMethod: 'pickup',
     address: '',
     city: '',
-    postalCode: '',
-    saveToProfile: false,
-    deliveryMethod: 'courier',
-    paymentMethod: 'card',
-    cardNumber: '',
-    cardExpiry: '',
-    cardCVV: '',
-    cardHolder: '',
+    paymentMethod: 'cash',
   });
   
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Load wallet balance when component mounts
+  // Load wallet balance
   useEffect(() => {
     const loadWalletBalance = async () => {
       try {
@@ -87,19 +55,21 @@ export default function CheckoutPage() {
     }
   }, [user]);
   
-  // Delivery options with prices
-  const deliveryOptions = [
-    { value: 'courier', label: 'Курьерская доставка', price: 500, days: '1-2 дня' },
-    { value: 'pickup', label: 'Самовывоз', price: 0, days: 'Сегодня' },
-    { value: 'mail', label: 'Почта России', price: 200, days: '5-7 дней' },
-  ];
-  
-  // Calculate delivery cost
-  const deliveryCost = deliveryOptions.find(o => o.value === formData.deliveryMethod)?.price || 0;
+  // Delivery cost
+  const deliveryCost = formData.deliveryMethod === 'delivery' ? 500 : 0;
   const totalCost = cart.total_price + deliveryCost;
   
-  // Validation for Step 1
+  // Validation for Step 1 (Delivery Method)
   const validateStep1 = (): boolean => {
+    return true; // No validation needed for delivery selection
+  };
+  
+  // Validation for Step 2 (Address if delivery)
+  const validateStep2 = (): boolean => {
+    if (formData.deliveryMethod === 'pickup') {
+      return true; // Skip address validation for pickup
+    }
+    
     const newErrors: Record<string, string> = {};
     
     if (!formData.firstName.trim()) {
@@ -108,10 +78,7 @@ export default function CheckoutPage() {
     if (!formData.lastName.trim()) {
       newErrors.lastName = 'Введите фамилию';
     }
-    if (!isValidEmail(formData.email)) {
-      newErrors.email = 'Неверный email';
-    }
-    if (!isValidPhone(formData.phone)) {
+    if (!formData.phone.trim() || !isValidPhone(formData.phone)) {
       newErrors.phone = 'Неверный телефон';
     }
     if (!formData.address.trim()) {
@@ -120,9 +87,6 @@ export default function CheckoutPage() {
     if (!formData.city.trim()) {
       newErrors.city = 'Введите город';
     }
-    if (!isValidPostalCode(formData.postalCode)) {
-      newErrors.postalCode = 'Неверный индекс';
-    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -130,58 +94,57 @@ export default function CheckoutPage() {
   
   // Validation for Step 3 (Payment)
   const validateStep3 = (): boolean => {
-    const newErrors: Record<string, string> = {};
-    
-    // Check wallet balance if paying with wallet
     if (formData.paymentMethod === 'wallet') {
       if (walletBalance < totalCost) {
-        newErrors.payment = `Недостаточно средств в кошельке`;
-        showToast('error', 'Недостаточно средств в кошельке');
-        setErrors(newErrors);
+        alert('Недостаточно средств в кошельке');
         return false;
       }
-      return true;
     }
     
-    if (formData.paymentMethod !== 'card') {
-      return true;
+    // For pickup, validate contact info
+    if (formData.deliveryMethod === 'pickup') {
+      const newErrors: Record<string, string> = {};
+      
+      if (!formData.firstName.trim()) {
+        newErrors.firstName = 'Введите имя';
+      }
+      if (!formData.lastName.trim()) {
+        newErrors.lastName = 'Введите фамилию';
+      }
+      if (!formData.phone.trim() || !isValidPhone(formData.phone)) {
+        newErrors.phone = 'Неверный телефон';
+      }
+      
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
     }
     
-    if (!isValidCardNumber(formData.cardNumber)) {
-      newErrors.cardNumber = 'Неверный номер карты';
-    }
-    if (!isValidCardExpiry(formData.cardExpiry)) {
-      newErrors.cardExpiry = 'Неверный срок действия';
-    }
-    if (!isValidCardCVV(formData.cardCVV)) {
-      newErrors.cardCVV = 'Неверный CVV';
-    }
-    if (!formData.cardHolder.trim()) {
-      newErrors.cardHolder = 'Введите имя держателя';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return true;
   };
   
   // Handle next step
   const handleNext = () => {
-    if (currentStep === 1) {
-      if (validateStep1()) {
+    if (currentStep === 1 && validateStep1()) {
+      // If pickup selected, skip address and go to payment
+      if (formData.deliveryMethod === 'pickup') {
+        setCurrentStep(3);
+      } else {
         setCurrentStep(2);
       }
-    } else if (currentStep === 2) {
+    } else if (currentStep === 2 && validateStep2()) {
       setCurrentStep(3);
-    } else if (currentStep === 3) {
-      if (validateStep3()) {
-        setCurrentStep(4);
-      }
+    } else if (currentStep === 3 && validateStep3()) {
+      handleSubmitOrder();
     }
   };
   
   // Handle previous step
   const handlePrev = () => {
-    setCurrentStep(prev => Math.max(1, prev - 1));
+    if (currentStep === 3 && formData.deliveryMethod === 'pickup') {
+      setCurrentStep(1); // Go back to delivery selection
+    } else {
+      setCurrentStep(prev => prev - 1);
+    }
   };
   
   // Submit order
@@ -192,18 +155,20 @@ export default function CheckoutPage() {
       const orderData = {
         delivery_method: formData.deliveryMethod,
         delivery_cost: deliveryCost,
-        delivery_address: `${formData.address}, ${formData.city}, ${formData.postalCode}`,
+        delivery_address: formData.deliveryMethod === 'delivery' 
+          ? `${formData.address}, ${formData.city}`
+          : 'Самовывоз из магазина',
         phone: formData.phone,
-        notes: '',
+        notes: `${formData.firstName} ${formData.lastName}`,
         payment_method: formData.paymentMethod,
       };
       
       const result = await dispatch(createOrder(orderData)).unwrap();
       
-      showToast('success', `Заказ №${result.id} успешно оформлен!`);
+      alert(`Заказ №${result.id} успешно оформлен!`);
       navigate(`/orders/${result.id}`);
     } catch (error: any) {
-      showToast('error', error.message || 'Ошибка при оформлении заказа');
+      alert(error.message || 'Ошибка при оформлении заказа');
     } finally {
       setIsSubmitting(false);
     }
@@ -224,16 +189,105 @@ export default function CheckoutPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">Оформление заказа</h1>
       
-      {/* Stepper */}
-      <CheckoutStepper currentStep={currentStep} />
+      {/* Steps indicator */}
+      <div className="flex items-center justify-center mb-8">
+        <div className={`flex items-center ${currentStep >= 1 ? 'text-primary-600' : 'text-gray-400'}`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${currentStep >= 1 ? 'border-primary-600 bg-primary-600 text-white' : 'border-gray-300'}`}>
+            1
+          </div>
+          <span className="ml-2 font-medium">Способ получения</span>
+        </div>
+        
+        {formData.deliveryMethod === 'delivery' && (
+          <>
+            <div className={`mx-4 w-12 h-0.5 ${currentStep >= 2 ? 'bg-primary-600' : 'bg-gray-300'}`}></div>
+            <div className={`flex items-center ${currentStep >= 2 ? 'text-primary-600' : 'text-gray-400'}`}>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${currentStep >= 2 ? 'border-primary-600 bg-primary-600 text-white' : 'border-gray-300'}`}>
+                2
+              </div>
+              <span className="ml-2 font-medium">Адрес</span>
+            </div>
+          </>
+        )}
+        
+        <div className={`mx-4 w-12 h-0.5 ${currentStep >= 3 ? 'bg-primary-600' : 'bg-gray-300'}`}></div>
+        <div className={`flex items-center ${currentStep >= 3 ? 'text-primary-600' : 'text-gray-400'}`}>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 ${currentStep >= 3 ? 'border-primary-600 bg-primary-600 text-white' : 'border-gray-300'}`}>
+            {formData.deliveryMethod === 'delivery' ? '3' : '2'}
+          </div>
+          <span className="ml-2 font-medium">Оплата</span>
+        </div>
+      </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left - Form */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow-md p-6">
             
-            {/* Step 1 - Address */}
+            {/* Step 1 - Delivery Method */}
             {currentStep === 1 && (
+              <div>
+                <h2 className="text-2xl font-bold mb-6">Выберите способ получения</h2>
+                
+                <div className="space-y-4">
+                  <div
+                    className={`border-2 rounded-lg p-6 cursor-pointer transition ${
+                      formData.deliveryMethod === 'pickup'
+                        ? 'border-primary-600 bg-primary-50'
+                        : 'border-gray-300 hover:border-primary-400'
+                    }`}
+                    onClick={() => setFormData({ ...formData, deliveryMethod: 'pickup' })}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start">
+                        <input
+                          type="radio"
+                          name="delivery"
+                          checked={formData.deliveryMethod === 'pickup'}
+                          onChange={() => {}}
+                          className="mt-1 mr-4"
+                        />
+                        <div>
+                          <div className="text-xl font-semibold mb-1">🏪 Самовывоз из магазина</div>
+                          <div className="text-gray-600 mb-2">Бесплатно, получите в тот же день</div>
+                          <div className="text-sm text-gray-500">Адрес магазина: г. Алматы, ул. Абая 150</div>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold text-green-600">БЕСПЛАТНО</div>
+                    </div>
+                  </div>
+                  
+                  <div
+                    className={`border-2 rounded-lg p-6 cursor-pointer transition ${
+                      formData.deliveryMethod === 'delivery'
+                        ? 'border-primary-600 bg-primary-50'
+                        : 'border-gray-300 hover:border-primary-400'
+                    }`}
+                    onClick={() => setFormData({ ...formData, deliveryMethod: 'delivery' })}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start">
+                        <input
+                          type="radio"
+                          name="delivery"
+                          checked={formData.deliveryMethod === 'delivery'}
+                          onChange={() => {}}
+                          className="mt-1 mr-4"
+                        />
+                        <div>
+                          <div className="text-xl font-semibold mb-1">🚚 Доставка курьером</div>
+                          <div className="text-gray-600">Доставим по указанному адресу в течение 1-2 дней</div>
+                        </div>
+                      </div>
+                      <div className="text-2xl font-bold">500₸</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Step 2 - Address (only for delivery) */}
+            {currentStep === 2 && formData.deliveryMethod === 'delivery' && (
               <div>
                 <h2 className="text-2xl font-bold mb-6">Адрес доставки</h2>
                 
@@ -252,23 +306,15 @@ export default function CheckoutPage() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <Input
-                    label="Email *"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    error={errors.email}
-                  />
-                  <Input
-                    label="Телефон *"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    error={errors.phone}
-                    placeholder="+7 (XXX) XXX-XX-XX"
-                  />
-                </div>
+                <Input
+                  label="Телефон *"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  error={errors.phone}
+                  placeholder="+7 (XXX) XXX-XX-XX"
+                  className="mt-4"
+                />
                 
                 <Input
                   label="Адрес *"
@@ -279,73 +325,13 @@ export default function CheckoutPage() {
                   className="mt-4"
                 />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <Input
-                    label="Город *"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    error={errors.city}
-                  />
-                  <Input
-                    label="Индекс *"
-                    value={formData.postalCode}
-                    onChange={(e) => setFormData({ ...formData, postalCode: e.target.value })}
-                    error={errors.postalCode}
-                    placeholder="123456"
-                  />
-                </div>
-                
-                <div className="mt-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.saveToProfile}
-                      onChange={(e) => setFormData({ ...formData, saveToProfile: e.target.checked })}
-                      className="mr-2"
-                    />
-                    <span className="text-sm">Сохранить адрес в профиле</span>
-                  </label>
-                </div>
-              </div>
-            )}
-            
-            {/* Step 2 - Delivery */}
-            {currentStep === 2 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6">Способ доставки</h2>
-                
-                <div className="space-y-4">
-                  {deliveryOptions.map((option) => (
-                    <div
-                      key={option.value}
-                      className={`border rounded-lg p-4 cursor-pointer transition ${
-                        formData.deliveryMethod === option.value
-                          ? 'border-primary-600 bg-primary-50'
-                          : 'border-gray-300 hover:border-primary-400'
-                      }`}
-                      onClick={() => setFormData({ ...formData, deliveryMethod: option.value as any })}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <input
-                            type="radio"
-                            name="delivery"
-                            checked={formData.deliveryMethod === option.value}
-                            onChange={() => {}}
-                            className="mr-3"
-                          />
-                          <div>
-                            <div className="font-semibold">{option.label}</div>
-                            <div className="text-sm text-gray-600">Доставка: {option.days}</div>
-                          </div>
-                        </div>
-                        <div className="font-bold">
-                          {option.price === 0 ? 'Бесплатно' : `${option.price} ₽`}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <Input
+                  label="Город *"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  error={errors.city}
+                  className="mt-4"
+                />
               </div>
             )}
             
@@ -354,153 +340,108 @@ export default function CheckoutPage() {
               <div>
                 <h2 className="text-2xl font-bold mb-6">Способ оплаты</h2>
                 
-                <div className="space-y-4 mb-6">
-                  <Radio
-                    name="payment"
-                    checked={formData.paymentMethod === 'card'}
-                    onChange={() => setFormData({ ...formData, paymentMethod: 'card' })}
-                    label="Банковская карта"
-                  />
-                  <Radio
-                    name="payment"
-                    checked={formData.paymentMethod === 'cash'}
-                    onChange={() => setFormData({ ...formData, paymentMethod: 'cash' })}
-                    label="Наличные при получении"
-                  />
-                  <Radio
-                    name="payment"
-                    checked={formData.paymentMethod === 'wallet'}
-                    onChange={() => setFormData({ ...formData, paymentMethod: 'wallet' })}
-                    label="Виртуальный кошелек"
-                  />
-                </div>
-                
-                {formData.paymentMethod === 'wallet' && (
-                  <div className="border-t pt-6">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-gray-700 font-medium">Баланс кошелька:</span>
-                        <span className="text-2xl font-bold text-primary-600">
-                          {formatPrice(walletBalance)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-700 font-medium">К оплате:</span>
-                        <span className="text-xl font-bold">
-                          {formatPrice(totalCost)}
-                        </span>
-                      </div>
-                      {walletBalance < totalCost && (
-                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded">
-                          <p className="text-red-800 text-sm font-medium">
-                            ⚠️ Недостаточно средств
-                          </p>
-                          <p className="text-red-600 text-xs mt-1">
-                            Пополните кошелек на {formatPrice(totalCost - walletBalance)} или выберите другой способ оплаты
-                          </p>
-                        </div>
-                      )}
-                      {walletBalance >= totalCost && (
-                        <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded">
-                          <p className="text-green-800 text-sm font-medium">
-                            ✓ Достаточно средств для оплаты
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {formData.paymentMethod === 'card' && (
-                  <div className="border-t pt-6">
-                    <h3 className="font-semibold mb-4">Данные карты</h3>
-                    
-                    <Input
-                      label="Номер карты *"
-                      value={formatCardNumber(formData.cardNumber)}
-                      onChange={(e) => setFormData({ ...formData, cardNumber: e.target.value.replace(/\s/g, '') })}
-                      error={errors.cardNumber}
-                      placeholder="1234 5678 9012 3456"
-                      maxLength={19}
-                    />
-                    
-                    <div className="grid grid-cols-2 gap-4 mt-4">
+                {/* Contact info for pickup */}
+                {formData.deliveryMethod === 'pickup' && (
+                  <div className="mb-6 pb-6 border-b">
+                    <h3 className="font-semibold mb-4">Контактные данные</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Input
-                        label="Срок действия *"
-                        value={formatCardExpiry(formData.cardExpiry)}
-                        onChange={(e) => setFormData({ ...formData, cardExpiry: e.target.value })}
-                        error={errors.cardExpiry}
-                        placeholder="MM/YY"
-                        maxLength={5}
+                        label="Имя *"
+                        value={formData.firstName}
+                        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                        error={errors.firstName}
                       />
                       <Input
-                        label="CVV *"
-                        type="password"
-                        value={formData.cardCVV}
-                        onChange={(e) => setFormData({ ...formData, cardCVV: e.target.value })}
-                        error={errors.cardCVV}
-                        placeholder="123"
-                        maxLength={3}
+                        label="Фамилия *"
+                        value={formData.lastName}
+                        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                        error={errors.lastName}
                       />
                     </div>
-                    
                     <Input
-                      label="Имя держателя *"
-                      value={formData.cardHolder}
-                      onChange={(e) => setFormData({ ...formData, cardHolder: e.target.value.toUpperCase() })}
-                      error={errors.cardHolder}
-                      placeholder="IVAN IVANOV"
+                      label="Телефон *"
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      error={errors.phone}
+                      placeholder="+7 (XXX) XXX-XX-XX"
                       className="mt-4"
                     />
                   </div>
                 )}
-              </div>
-            )}
-            
-            {/* Step 4 - Confirmation */}
-            {currentStep === 4 && (
-              <div>
-                <h2 className="text-2xl font-bold mb-6">Подтверждение заказа</h2>
                 
-                {/* Order summary */}
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="font-semibold mb-2">Адрес доставки</h3>
-                    <p className="text-gray-600">
-                      {formData.firstName} {formData.lastName}<br />
-                      {formData.address}, {formData.city}, {formData.postalCode}<br />
-                      {formData.phone}<br />
-                      {formData.email}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-semibold mb-2">Способ доставки</h3>
-                    <p className="text-gray-600">
-                      {deliveryOptions.find(o => o.value === formData.deliveryMethod)?.label}
-                      {' - '}
-                      {deliveryCost === 0 ? 'Бесплатно' : `${deliveryCost} ₽`}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-semibold mb-2">Способ оплаты</h3>
-                    <p className="text-gray-600">
-                      {formData.paymentMethod === 'card' && 'Банковская карта'}
-                      {formData.paymentMethod === 'cash' && 'Наличные при получении'}
-                      {formData.paymentMethod === 'wallet' && 'Электронный кошелек'}
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="font-semibold mb-2">Товары ({cart.total_items})</h3>
-                    <div className="space-y-2">
-                      {cart.items.map((item: any) => (
-                        <div key={item.id} className="flex justify-between text-sm">
-                          <span>{item.product_name} × {item.quantity}</span>
-                          <span>{item.subtotal} ₽</span>
+                <div className="space-y-4">
+                  <div
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition ${
+                      formData.paymentMethod === 'cash'
+                        ? 'border-primary-600 bg-primary-50'
+                        : 'border-gray-300 hover:border-primary-400'
+                    }`}
+                    onClick={() => setFormData({ ...formData, paymentMethod: 'cash' })}
+                  >
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        name="payment"
+                        checked={formData.paymentMethod === 'cash'}
+                        onChange={() => {}}
+                        className="mr-4"
+                      />
+                      <div>
+                        <div className="text-lg font-semibold">💰 Наличные</div>
+                        <div className="text-sm text-gray-600">
+                          {formData.deliveryMethod === 'pickup' 
+                            ? 'Оплата в магазине при получении'
+                            : 'Оплата курьеру при получении'
+                          }
                         </div>
-                      ))}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div
+                    className={`border-2 rounded-lg p-4 cursor-pointer transition ${
+                      formData.paymentMethod === 'wallet'
+                        ? 'border-primary-600 bg-primary-50'
+                        : 'border-gray-300 hover:border-primary-400'
+                    }`}
+                    onClick={() => setFormData({ ...formData, paymentMethod: 'wallet' })}
+                  >
+                    <div className="flex items-start">
+                      <input
+                        type="radio"
+                        name="payment"
+                        checked={formData.paymentMethod === 'wallet'}
+                        onChange={() => {}}
+                        className="mt-1 mr-4"
+                      />
+                      <div className="flex-1">
+                        <div className="text-lg font-semibold">💳 Виртуальный кошелек</div>
+                        <div className="text-sm text-gray-600 mb-2">Оплата со счета на сайте</div>
+                        <div className="bg-white rounded p-3 border">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-gray-600">Баланс кошелька:</span>
+                            <span className="font-bold">{formatPrice(walletBalance)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">К оплате:</span>
+                            <span className="font-bold">{formatPrice(totalCost)}</span>
+                          </div>
+                          {formData.paymentMethod === 'wallet' && walletBalance < totalCost && (
+                            <div className="mt-2 space-y-2">
+                              <div className="p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                                ⚠️ Недостаточно средств. Нужно еще {formatPrice(totalCost - walletBalance)}
+                              </div>
+                              <Link
+                                to="/wallet"
+                                className="block w-full text-center px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700 transition text-sm font-semibold"
+                              >
+                                Пополнить кошелек
+                              </Link>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -515,31 +456,50 @@ export default function CheckoutPage() {
                 </Button>
               )}
               
-              {currentStep < 4 ? (
-                <Button onClick={handleNext} className="ml-auto">
-                  Далее
-                </Button>
-              ) : (
-                <Button
-                  onClick={handleSubmitOrder}
-                  disabled={isSubmitting}
-                  className="ml-auto"
-                >
-                  {isSubmitting ? 'Оформление...' : 'Оформить заказ'}
-                </Button>
-              )}
+              <Button
+                onClick={handleNext}
+                disabled={isSubmitting}
+                className="ml-auto"
+              >
+                {currentStep === 3
+                  ? (isSubmitting ? 'Оформление...' : 'Оформить заказ')
+                  : 'Далее'
+                }
+              </Button>
             </div>
           </div>
         </div>
         
-        {/* Right - Order Summary (Sticky) */}
+        {/* Right - Order Summary */}
         <div className="lg:col-span-1">
-          <div className="sticky top-4">
-            <OrderSummary
-              subtotal={cart.total_price}
-              delivery={deliveryCost}
-              total={totalCost}
-            />
+          <div className="bg-white rounded-lg shadow-md p-6 sticky top-4">
+            <h3 className="text-xl font-bold mb-4">Ваш заказ</h3>
+            
+            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+              {cart.items.map((item: any) => (
+                <div key={item.id} className="flex justify-between text-sm">
+                  <span className="text-gray-700">{item.product_name} × {item.quantity}</span>
+                  <span className="font-semibold">{formatPrice(item.subtotal)}</span>
+                </div>
+              ))}
+            </div>
+            
+            <div className="border-t pt-3 space-y-2">
+              <div className="flex justify-between text-gray-700">
+                <span>Товары:</span>
+                <span>{formatPrice(cart.total_price)}</span>
+              </div>
+              <div className="flex justify-between text-gray-700">
+                <span>Доставка:</span>
+                <span className={deliveryCost === 0 ? 'text-green-600 font-semibold' : ''}>
+                  {deliveryCost === 0 ? 'БЕСПЛАТНО' : formatPrice(deliveryCost)}
+                </span>
+              </div>
+              <div className="border-t pt-3 flex justify-between text-xl font-bold">
+                <span>Итого:</span>
+                <span className="text-primary-600">{formatPrice(totalCost)}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

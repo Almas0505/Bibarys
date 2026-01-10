@@ -3,7 +3,7 @@
  */
 
 // API Configuration
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
 export const APP_NAME = import.meta.env.VITE_APP_NAME || 'E-Commerce Shop';
 
 // Local Storage Keys
@@ -20,16 +20,31 @@ export const MAX_PAGE_SIZE = 100;
 
 // Product Categories
 export const PRODUCT_CATEGORIES = [
-  { value: 'electronics', label: 'Электроника' },
-  { value: 'clothing', label: 'Одежда' },
-  { value: 'books', label: 'Книги' },
-  { value: 'home', label: 'Дом и сад' },
-  { value: 'sports', label: 'Спорт' },
-  { value: 'toys', label: 'Игрушки' },
-  { value: 'beauty', label: 'Красота' },
-  { value: 'food', label: 'Еда' },
+  { value: 'dairy', label: 'Молочные продукты' },
+  { value: 'bakery', label: 'Хлебобулочные изделия' },
+  { value: 'beverages', label: 'Напитки' },
+  { value: 'meat', label: 'Мясо и колбасы' },
+  { value: 'fruits_vegetables', label: 'Овощи и фрукты' },
+  { value: 'frozen', label: 'Замороженные продукты' },
+  { value: 'grocery', label: 'Бакалея (крупы, макароны)' },
+  { value: 'sweets', label: 'Сладости и снеки' },
+  { value: 'canned', label: 'Консервы' },
   { value: 'other', label: 'Другое' },
 ] as const;
+
+// Product Categories Map (for displaying labels)
+export const PRODUCT_CATEGORIES_MAP: Record<string, string> = {
+  dairy: 'Молочные продукты',
+  bakery: 'Хлебобулочные изделия',
+  beverages: 'Напитки',
+  meat: 'Мясо и колбасы',
+  fruits_vegetables: 'Овощи и фрукты',
+  frozen: 'Замороженные продукты',
+  grocery: 'Бакалея (крупы, макароны)',
+  sweets: 'Сладости и снеки',
+  canned: 'Консервы',
+  other: 'Другое',
+};
 
 // Order Statuses
 export const ORDER_STATUSES = {
@@ -102,8 +117,8 @@ export const TOAST_MESSAGES = {
 } as const;
 
 // Placeholder Images
-export const PLACEHOLDER_IMAGE = 'https://via.placeholder.com/400x400?text=Product';
-export const PLACEHOLDER_AVATAR = 'https://via.placeholder.com/150x150?text=Avatar';
+export const PLACEHOLDER_IMAGE = 'https://placehold.co/400x400/e2e8f0/64748b?text=Product';
+export const PLACEHOLDER_AVATAR = 'https://placehold.co/150x150/e2e8f0/64748b?text=Avatar';
 
 // Rating Stars
 export const RATING_STARS = [1, 2, 3, 4, 5] as const;

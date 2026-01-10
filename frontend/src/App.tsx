@@ -22,6 +22,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import AdminPage from './pages/AdminPage';
 import SellerPage from './pages/SellerPage';
+import WalletPage from './pages/WalletPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Components
@@ -90,6 +91,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <WishlistPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/wallet"
+            element={
+              <ProtectedRoute>
+                <WalletPage />
               </ProtectedRoute>
             }
           />

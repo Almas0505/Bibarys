@@ -2,6 +2,7 @@
 Seller endpoints - Seller-specific functions
 """
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List
 from app.db.session import get_db
@@ -13,6 +14,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from sqlalchemy import func
 import math
+import os
 
 router = APIRouter()
 
@@ -281,3 +283,56 @@ def get_top_customers(
     ]
     
     return top_customers
+
+
+@router.get("/export-pdf")
+async def export_seller_pdf(
+    current_user: User = Depends(require_seller_or_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Export seller analytics to PDF
+    
+    Requires seller or admin role
+    """
+    from app.services.pdf_service import PDFService
+    from app.core.constants import OrderStatus
+    
+    # Get seller statistics
+    stats = {
+        'seller_name': f"{current_user.first_name} {current_user.last_name}",
+        'total_products': db.query(Product).filter(Product.seller_id == current_user.id).count(),
+        'active_products': db.query(Product).filter(
+            Product.seller_id == current_user.id,
+            Product.is_active == True
+        ).count(),
+        'total_balance': current_user.balance or 0,
+    }
+    
+    # Get orders with seller's products
+    seller_orders = db.query(Order).join(OrderItem).filter(
+        OrderItem.seller_id == current_user.id
+    ).order_by(Order.created_at.desc()).limit(20).all()
+    
+    # Get seller's products
+    seller_products = db.query(Product).filter(
+        Product.seller_id == current_user.id
+    ).order_by(Product.rating.desc()).limit(10).all()
+    
+    # Generate PDF
+    pdf_path = PDFService.generate_seller_report(stats, seller_orders, seller_products)
+    
+    # Return with CORS headers
+    response = FileResponse(
+        pdf_path,
+        media_type='application/pdf',
+        filename=f'seller_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf',
+    )
+    
+    # Add CORS headers explicitly for file downloads
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    return response
+

@@ -39,22 +39,29 @@ export default function Header() {
             
             {isAuthenticated && (
               <>
-                <Link to="/orders" className="text-gray-700 hover:text-primary-600">
-                  Мои заказы
-                </Link>
-                <Link to="/wishlist" className="text-gray-700 hover:text-primary-600">
-                  Избранное
-                </Link>
+                {/* Покупатель видит свои заказы и избранное */}
+                {user?.role === UserRole.CUSTOMER && (
+                  <>
+                    <Link to="/orders" className="text-gray-700 hover:text-primary-600">
+                      Мои заказы
+                    </Link>
+                    <Link to="/wishlist" className="text-gray-700 hover:text-primary-600">
+                      Избранное
+                    </Link>
+                  </>
+                )}
                 
+                {/* Админ видит только админ-панель */}
                 {user?.role === UserRole.ADMIN && (
                   <Link to="/admin" className="text-gray-700 hover:text-primary-600">
-                    Админ
+                    👑 Панель администратора
                   </Link>
                 )}
                 
-                {(user?.role === UserRole.SELLER || user?.role === UserRole.ADMIN) && (
+                {/* Продавец видит только панель продавца */}
+                {user?.role === UserRole.SELLER && (
                   <Link to="/seller" className="text-gray-700 hover:text-primary-600">
-                    Продавец
+                    📊 Панель продавца
                   </Link>
                 )}
               </>
@@ -63,27 +70,50 @@ export default function Header() {
 
           {/* Actions */}
           <div className="flex items-center space-x-4">
-            {/* Cart */}
-            <Link to="/cart" className="relative text-gray-700 hover:text-primary-600">
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
-              {cart.total_items > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {cart.total_items}
-                </span>
-              )}
-            </Link>
+            {/* Wallet - show for all authenticated users */}
+            {isAuthenticated && (
+              <Link to="/wallet" className="relative flex items-center space-x-2 text-gray-700 hover:text-primary-600 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition">
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+                  />
+                </svg>
+                <span className="font-medium">Кошелек</span>
+              </Link>
+            )}
+            
+            {/* Cart - only for customers */}
+            {(!isAuthenticated || user?.role === UserRole.CUSTOMER) && (
+              <Link to="/cart" className="relative flex items-center space-x-2 text-gray-700 hover:text-primary-600 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition">
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
+                </svg>
+                <span className="font-medium">Корзина</span>
+                {cart.total_items > 0 && (
+                  <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 font-bold">
+                    {cart.total_items}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* Auth */}
             {isAuthenticated ? (

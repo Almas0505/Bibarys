@@ -10,34 +10,48 @@ import { addToCart } from '../store/cartSlice';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Button from '../components/common/Button';
 import Modal from '../components/common/Modal';
-import { useToast } from '../components/common/ToastContainer';
 import { formatPrice, formatDateTime } from '../utils/helpers';
 import { ORDER_STATUSES } from '../utils/constants';
-import { OrderStatus } from '../types';
 
 export default function OrderDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { showToast } = useToast();
   const { currentOrder: order, isLoading } = useAppSelector((state) => state.order);
   
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   useEffect(() => {
     if (id) {
       dispatch(fetchOrder(Number(id)));
+      setLastUpdated(new Date());
+      
+      // Auto-refresh every 10 seconds for active orders
+      const interval = setInterval(() => {
+        dispatch(fetchOrder(Number(id)));
+        setLastUpdated(new Date());
+      }, 10000); // Changed from 30000 to 10000 (10 seconds)
+      
+      return () => clearInterval(interval);
     }
   }, [dispatch, id]);
+
+  const handleRefresh = () => {
+    if (id) {
+      dispatch(fetchOrder(Number(id)));
+      setLastUpdated(new Date());
+    }
+  };
 
   const handleCancelOrder = async () => {
     if (order) {
       try {
         await dispatch(cancelOrder(order.id)).unwrap();
-        showToast('success', 'Заказ успешно отменён');
+        alert('Заказ успешно отменён');
         setShowCancelModal(false);
       } catch (error: any) {
-        showToast('error', error.message || 'Ошибка при отмене заказа');
+        alert(error.message || 'Ошибка при отмене заказа');
       }
     }
   };
@@ -54,10 +68,10 @@ export default function OrderDetailsPage() {
         })).unwrap();
       }
       
-      showToast('success', 'Товары добавлены в корзину');
+      alert('Товары добавлены в корзину');
       navigate('/cart');
     } catch (error: any) {
-      showToast('error', error.message || 'Ошибка при добавлении товаров');
+      alert(error.message || 'Ошибка при добавлении товаров в корзину');
     }
   };
 
@@ -76,11 +90,11 @@ export default function OrderDetailsPage() {
     );
   }
 
-  const statusInfo = ORDER_STATUSES[order.status as keyof typeof ORDER_STATUSES];
-  const canCancel = order.status === OrderStatus.PENDING || order.status === OrderStatus.PROCESSING;
+  const statusInfo = ORDER_STATUSES[order.status] || ORDER_STATUSES.pending;
+  const canCancel = order.status === 'processing'; // Можно отменить только в обработке
   
-  // Get all statuses up to current status
-  const allStatuses = ['pending', 'processing', 'shipped', 'delivered'];
+  // Упрощенная система: только 2 этапа
+  const allStatuses = ['processing', 'delivered'];
   const currentStatusIndex = allStatuses.indexOf(order.status);
   const orderStatuses = allStatuses.slice(0, currentStatusIndex + 1);
 
@@ -91,16 +105,31 @@ export default function OrderDetailsPage() {
         <div>
           <h1 className="text-3xl font-bold mb-2">Заказ #{order.id}</h1>
           <p className="text-gray-600">{formatDateTime(order.created_at)}</p>
+          <p className="text-xs text-gray-500 mt-1">
+            Обновлено: {lastUpdated.toLocaleTimeString('ru-RU')} • Автообновление каждые 10 сек
+          </p>
         </div>
-        <span
-          className={`px-4 py-2 rounded-full text-sm font-semibold bg-${statusInfo.color}-100 text-${statusInfo.color}-800`}
-        >
-          {statusInfo.label}
-        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleRefresh}
+            disabled={isLoading}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50 flex items-center gap-2"
+            title="Обновить статус"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+          <span
+            className={`px-4 py-2 rounded-full text-sm font-semibold bg-${statusInfo.color}-100 text-${statusInfo.color}-800`}
+          >
+            {statusInfo.label}
+          </span>
+        </div>
       </div>
 
       {/* Timeline */}
-      {order.status !== OrderStatus.CANCELLED && (
+      {order.status !== 'cancelled' && (
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h2 className="text-xl font-bold mb-6">Статус заказа</h2>
           
@@ -118,10 +147,8 @@ export default function OrderDetailsPage() {
                       {isActive ? '✓' : idx + 1}
                     </div>
                     <span className="text-xs mt-2 text-center">
-                      {status === 'pending' && 'Ожидает'}
                       {status === 'processing' && 'В обработке'}
-                      {status === 'shipped' && 'Отправлен'}
-                      {status === 'delivered' && 'Доставлен'}
+                      {status === 'delivered' && 'Принят/Доставлен'}
                     </span>
                   </div>
                   
@@ -188,7 +215,7 @@ export default function OrderDetailsPage() {
                   <span className="ml-2 font-semibold">{order.tracking_number}</span>
                 </div>
               )}
-              {order.estimated_delivery && (
+              {order.estimated_delivery && order.estimated_delivery !== '' && (
                 <div>
                   <span className="text-gray-600">Ожидаемая дата доставки:</span>
                   <span className="ml-2 font-semibold">{formatDateTime(order.estimated_delivery)}</span>
@@ -211,7 +238,7 @@ export default function OrderDetailsPage() {
               </Button>
             )}
             
-            {order.status === OrderStatus.DELIVERED && (
+            {order.status === 'delivered' && (
               <Button onClick={() => navigate(`/product/${order.items[0]?.product_id}?review=true`)}>
                 Оставить отзыв
               </Button>

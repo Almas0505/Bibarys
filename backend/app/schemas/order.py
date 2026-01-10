@@ -21,6 +21,7 @@ class OrderItemResponse(BaseModel):
     quantity: int
     price_at_purchase: float
     seller_id: int
+    is_delivered: bool
     
     class Config:
         from_attributes = True
@@ -32,6 +33,7 @@ class OrderCreate(BaseModel):
     delivery_address: str = Field(..., min_length=5)
     phone: str = Field(..., min_length=5, max_length=20)
     notes: Optional[str] = None
+    payment_method: str = Field(default='cash')  # 'cash' or 'wallet'
 
 
 class OrderUpdate(BaseModel):

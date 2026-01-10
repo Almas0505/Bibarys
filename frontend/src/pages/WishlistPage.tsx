@@ -3,7 +3,7 @@
  */
 
 import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { addToCart } from '../store/cartSlice';
 import { fetchWishlist, removeFromWishlist as removeFromWishlistAction } from '../store/wishlistSlice';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
@@ -12,6 +12,7 @@ import { formatPrice } from '../utils/helpers';
 import { PLACEHOLDER_IMAGE } from '../utils/constants';
 
 export default function WishlistPage() {
+  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { items: wishlist, isLoading } = useAppSelector((state) => state.wishlist);
 
@@ -24,7 +25,14 @@ export default function WishlistPage() {
   };
 
   const handleAddToCart = async (productId: number) => {
-    await dispatch(addToCart({ product_id: productId, quantity: 1 }));
+    try {
+      await dispatch(addToCart({ product_id: productId, quantity: 1 })).unwrap();
+      if (window.confirm('Товар добавлен в корзину!\n\nПерейти в корзину?')) {
+        navigate('/cart');
+      }
+    } catch (error: any) {
+      alert(error || 'Ошибка при добавлении в корзину');
+    }
   };
 
   if (isLoading) {

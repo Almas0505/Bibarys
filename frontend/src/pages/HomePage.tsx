@@ -7,7 +7,7 @@ import { Link } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { fetchProducts } from '../store/productSlice';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import { formatPrice } from '../utils/helpers';
+import { formatPrice, getImageUrl } from '../utils/helpers';
 import { PLACEHOLDER_IMAGE } from '../utils/constants';
 
 export default function HomePage() {
@@ -81,11 +81,16 @@ export default function HomePage() {
                 to={`/product/${product.id}`}
                 className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow"
               >
-                <div className="aspect-square overflow-hidden">
+                <div className="aspect-square overflow-hidden bg-gray-100">
                   <img
-                    src={product.image_urls[0] || PLACEHOLDER_IMAGE}
+                    src={getImageUrl(product.image_urls?.[0], PLACEHOLDER_IMAGE)}
                     alt={product.name}
                     className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.onerror = null;
+                      target.src = PLACEHOLDER_IMAGE;
+                    }}
                   />
                 </div>
                 <div className="p-4">

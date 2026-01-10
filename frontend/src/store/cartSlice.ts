@@ -5,6 +5,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { cartService } from '../services';
 import { Cart } from '../types';
+import { logout } from './authSlice';
 
 interface CartState {
   cart: Cart;
@@ -159,6 +160,16 @@ const cartSlice = createSlice({
         total_items: 0,
         total_price: 0,
       };
+    });
+
+    // Clear cart on logout
+    builder.addCase(logout, (state) => {
+      state.cart = {
+        items: [],
+        total_items: 0,
+        total_price: 0,
+      };
+      state.error = null;
     });
   },
 });

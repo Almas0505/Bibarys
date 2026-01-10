@@ -176,6 +176,32 @@ def delete_user(
     return MessageResponse(message="User deleted successfully")
 
 
+@router.patch("/users/{user_id}/toggle-active", response_model=UserResponse)
+def toggle_user_active(
+    user_id: int,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Toggle user active status
+    
+    Automatically switches between active and inactive states.
+    
+    Requires admin role
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise NotFoundException(detail="User not found")
+    
+    # Toggle active status
+    user.is_active = not user.is_active
+    db.commit()
+    db.refresh(user)
+    
+    return user
+
+
 @router.get("/orders", response_model=OrderListResponse)
 def get_all_orders(
     page: int = Query(1, ge=1),
@@ -241,19 +267,72 @@ def export_analytics_pdf(
     db: Session = Depends(get_db)
 ):
     """
-    Export analytics data to PDF
+    Export comprehensive analytics data to PDF
     
-    Generates a PDF report with platform statistics, recent orders, and top products.
+    Generates a detailed PDF report with platform statistics, seller stats,
+    category stats, top sellers, top customers, recent orders, and top products.
     All prices are displayed in Tenge (₸).
     
     Requires admin role
     """
     from fastapi.responses import FileResponse
     from app.services.pdf_service import PDFService
+    from app.core.constants import UserRole, OrderStatus
+    from sqlalchemy import func
     import os
     
     # Get dashboard statistics
     stats = get_dashboard_stats(current_user, db)
+    
+    # Get seller statistics
+    total_sellers = db.query(User).filter(User.role == UserRole.SELLER).count()
+    active_sellers = db.query(User).filter(
+        User.role == UserRole.SELLER,
+        User.is_active == True
+    ).count()
+    
+    # Get customers statistics
+    total_customers = db.query(User).filter(User.role == UserRole.CUSTOMER).count()
+    active_customers = db.query(User).filter(
+        User.role == UserRole.CUSTOMER,
+        User.is_active == True
+    ).count()
+    
+    # Category statistics
+    category_stats = db.query(
+        Product.category,
+        func.count(Product.id).label('count'),
+        func.sum(Product.quantity).label('total_stock')
+    ).group_by(Product.category).all()
+    
+    # Top sellers by revenue
+    top_sellers = db.query(
+        User.id,
+        User.first_name,
+        User.last_name,
+        User.email,
+        func.count(func.distinct(Product.id)).label('products_count'),
+        func.sum(Product.view_count).label('total_views')
+    ).join(Product, User.id == Product.seller_id).filter(
+        User.role == UserRole.SELLER
+    ).group_by(User.id, User.first_name, User.last_name, User.email).order_by(
+        func.count(func.distinct(Product.id)).desc()
+    ).limit(10).all()
+    
+    # Top customers by spending
+    from app.db.models import OrderItem
+    top_customers = db.query(
+        User.id,
+        User.first_name,
+        User.last_name,
+        User.email,
+        func.count(func.distinct(Order.id)).label('orders_count'),
+        func.sum(Order.total_price).label('total_spent')
+    ).join(Order, User.id == Order.user_id).filter(
+        Order.status.in_([OrderStatus.DELIVERED, OrderStatus.PROCESSING])
+    ).group_by(User.id, User.first_name, User.last_name, User.email).order_by(
+        func.sum(Order.total_price).desc()
+    ).limit(10).all()
     
     # Get recent orders
     orders_response = get_all_orders(1, 20, None, None, current_user, db)
@@ -266,17 +345,59 @@ def export_analytics_pdf(
         Product.rating.desc()
     ).limit(20).all()
     
+    # Compile all stats
+    extended_stats = {
+        **stats.dict(),
+        'total_sellers': total_sellers,
+        'active_sellers_count': active_sellers,
+        'total_customers': total_customers,
+        'active_customers': active_customers,
+        'category_stats': [
+            {
+                'category': cat.category,
+                'count': cat.count,
+                'total_stock': cat.total_stock or 0
+            }
+            for cat in category_stats
+        ],
+        'top_sellers': [
+            {
+                'name': f"{seller.first_name} {seller.last_name}",
+                'email': seller.email,
+                'products_count': seller.products_count,
+                'total_views': seller.total_views or 0
+            }
+            for seller in top_sellers
+        ],
+        'top_customers': [
+            {
+                'name': f"{customer.first_name} {customer.last_name}",
+                'email': customer.email,
+                'orders_count': customer.orders_count,
+                'total_spent': float(customer.total_spent or 0)
+            }
+            for customer in top_customers
+        ]
+    }
+    
     # Generate PDF
-    pdf_path = PDFService.generate_analytics_report(
-        stats=stats.dict(),
+    pdf_path = PDFService.generate_admin_report(
+        stats=extended_stats,
         orders=orders,
         products=products
     )
     
-    # Return PDF file
-    return FileResponse(
+    # Return PDF file with CORS headers
+    response = FileResponse(
         pdf_path,
         media_type='application/pdf',
-        filename=f"bibarys_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-        headers={"Content-Disposition": f"attachment; filename=bibarys_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"}
+        filename=f"bibarys_admin_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
     )
+    
+    # Add CORS headers explicitly for file downloads
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    
+    return response
+

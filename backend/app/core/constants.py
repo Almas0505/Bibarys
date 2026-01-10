@@ -42,16 +42,17 @@ class DeliveryMethod(str, Enum):
 
 
 class ProductCategory(str, Enum):
-    """Product category types"""
-    ELECTRONICS = "electronics"
-    CLOTHING = "clothing"
-    BOOKS = "books"
-    HOME = "home"
-    SPORTS = "sports"
-    TOYS = "toys"
-    BEAUTY = "beauty"
-    FOOD = "food"
-    OTHER = "other"
+    """Категории продуктов питания"""
+    DAIRY = "dairy"  # Молочные продукты
+    BAKERY = "bakery"  # Хлебобулочные изделия
+    BEVERAGES = "beverages"  # Напитки
+    MEAT = "meat"  # Мясо и колбасы
+    FRUITS_VEGETABLES = "fruits_vegetables"  # Овощи и фрукты
+    FROZEN = "frozen"  # Замороженные продукты
+    GROCERY = "grocery"  # Бакалея (крупы, макароны)
+    SWEETS = "sweets"  # Сладости и снеки
+    CANNED = "canned"  # Консервы
+    OTHER = "other"  # Другое
 
 
 # Delivery costs by method (in cents/smallest currency unit)

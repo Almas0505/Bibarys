@@ -27,11 +27,11 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
     description: product?.description || '',
     price: product?.price || 0,
     quantity: product?.quantity || 0,
-    category: product?.category || ('electronics' as ProductCategory),
+    category: product?.category || ('other' as ProductCategory),
   });
 
   const [imageUrls, setImageUrls] = useState<string[]>(product?.image_urls || []);
-  const [newImageUrl, setNewImageUrl] = useState('');
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
       newErrors.quantity = 'Количество не может быть отрицательным';
     }
 
-    if (imageUrls.length === 0) {
+    if (imageUrls.length === 0 && imageFiles.length === 0) {
       newErrors.images = 'Добавьте хотя бы одно изображение';
     }
 
@@ -91,30 +91,43 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
     submitData.append('price', formData.price.toString());
     submitData.append('quantity', formData.quantity.toString());
     submitData.append('category', formData.category);
-    submitData.append('image_urls', JSON.stringify(imageUrls));
+    
+    // Add existing URLs (for editing)
+    const existingUrls = imageUrls.filter(url => !url.startsWith('blob:'));
+    if (existingUrls.length > 0) {
+      submitData.append('image_urls', JSON.stringify(existingUrls));
+    } else {
+      submitData.append('image_urls', JSON.stringify([]));
+    }
+    
+    // Add new image files
+    imageFiles.forEach((file, index) => {
+      submitData.append(`images`, file);
+    });
 
     await onSubmit(submitData);
   };
 
-  const handleAddImage = () => {
-    if (newImageUrl.trim() && isValidUrl(newImageUrl)) {
-      setImageUrls([...imageUrls, newImageUrl.trim()]);
-      setNewImageUrl('');
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      setImageFiles([...imageFiles, ...newFiles]);
+      
+      // Create preview URLs
+      const newUrls = newFiles.map(file => URL.createObjectURL(file));
+      setImageUrls([...imageUrls, ...newUrls]);
       setErrors({ ...errors, images: '' });
     }
   };
 
   const handleRemoveImage = (index: number) => {
-    setImageUrls(imageUrls.filter((_, i) => i !== index));
-  };
-
-  const isValidUrl = (url: string) => {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
+    // Revoke the URL to free memory
+    if (imageUrls[index].startsWith('blob:')) {
+      URL.revokeObjectURL(imageUrls[index]);
     }
+    setImageUrls(imageUrls.filter((_, i) => i !== index));
+    setImageFiles(imageFiles.filter((_, i) => i !== index));
   };
 
   return (
@@ -159,18 +172,19 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-2">
-            Цена (₽) *
+            Цена (₸) *
           </label>
           <input
             type="number"
             id="price"
-            value={formData.price}
-            onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+            value={formData.price || ''}
+            onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) || 0 })}
             min="0"
-            step="0.01"
+            step="1"
             className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 ${
               errors.price ? 'border-red-500' : 'border-gray-300'
             }`}
+            placeholder="Введите цену в тенге"
           />
           {errors.price && <p className="mt-1 text-sm text-red-600">{errors.price}</p>}
         </div>
@@ -204,9 +218,9 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
           onChange={(e) => setFormData({ ...formData, category: e.target.value as ProductCategory })}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
         >
-          {Object.entries(PRODUCT_CATEGORIES).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
+          {PRODUCT_CATEGORIES.map((cat) => (
+            <option key={cat.value} value={cat.value}>
+              {cat.label}
             </option>
           ))}
         </select>
@@ -215,7 +229,7 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
       {/* Images */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Изображения * (URL)
+          Изображения товара *
         </label>
         
         {/* Image List */}
@@ -228,7 +242,7 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
                   alt={`Product ${index + 1}`}
                   className="w-full h-32 object-cover rounded-lg border border-gray-300"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Invalid+URL';
+                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/150?text=Ошибка';
                   }}
                 />
                 <button
@@ -245,25 +259,28 @@ export default function ProductForm({ product, onSubmit, onCancel, isLoading }: 
           </div>
         )}
 
-        {/* Add Image */}
-        <div className="flex gap-2">
+        {/* Add Image from Computer */}
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary-500 transition-colors">
           <input
-            type="url"
-            value={newImageUrl}
-            onChange={(e) => setNewImageUrl(e.target.value)}
-            placeholder="https://example.com/image.jpg"
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            type="file"
+            id="imageUpload"
+            accept="image/*"
+            multiple
+            onChange={handleFileChange}
+            className="hidden"
           />
-          <button
-            type="button"
-            onClick={handleAddImage}
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-          >
-            Добавить
-          </button>
+          <label htmlFor="imageUpload" className="cursor-pointer">
+            <div className="flex flex-col items-center">
+              <svg className="w-12 h-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <p className="text-sm text-gray-600 mb-1">Нажмите для загрузки изображений</p>
+              <p className="text-xs text-gray-500">или перетащите файлы сюда</p>
+              <p className="text-xs text-gray-400 mt-2">PNG, JPG, GIF до 10MB</p>
+            </div>
+          </label>
         </div>
-        {errors.images && <p className="mt-1 text-sm text-red-600">{errors.images}</p>}
-        <p className="mt-1 text-sm text-gray-500">Добавьте URL изображений товара</p>
+        {errors.images && <p className="mt-2 text-sm text-red-600">{errors.images}</p>}
       </div>
 
       {/* Buttons */}

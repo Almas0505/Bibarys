@@ -60,6 +60,32 @@ class OrderService:
         delivery_cost = DELIVERY_COSTS.get(order_data.delivery_method, 0)
         total_price += delivery_cost
         
+        # If paying with wallet, check balance and deduct amount
+        if order_data.payment_method == 'wallet':
+            from app.db.models import User, Transaction
+            
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user:
+                raise NotFoundException(detail="User not found")
+            
+            if user.balance < total_price:
+                raise BadRequestException(
+                    detail=f"Insufficient balance. Required: {total_price}, Available: {user.balance}"
+                )
+            
+            # Deduct amount from user's balance
+            user.balance -= total_price
+            
+            # Create debit transaction
+            transaction = Transaction(
+                user_id=user_id,
+                amount=-total_price,
+                type='debit',
+                description=f'Оплата заказа (заказ будет создан)',
+                balance_after=user.balance
+            )
+            db.add(transaction)
+        
         # Generate tracking number
         tracking_number = f"TRK-{uuid.uuid4().hex[:12].upper()}"
         
@@ -74,7 +100,7 @@ class OrderService:
         # Create order
         order = Order(
             user_id=user_id,
-            status=OrderStatus.PENDING,
+            status=OrderStatus.PROCESSING,  # Заказ сразу в обработке
             total_price=total_price,
             delivery_method=order_data.delivery_method,
             delivery_cost=delivery_cost,
@@ -87,6 +113,19 @@ class OrderService:
         
         db.add(order)
         db.flush()  # Get order ID
+        
+        # Update transaction description with order ID if paid with wallet
+        if order_data.payment_method == 'wallet':
+            from app.db.models import Transaction
+            # Find the transaction we just created
+            latest_transaction = (
+                db.query(Transaction)
+                .filter(Transaction.user_id == user_id, Transaction.type == 'debit')
+                .order_by(Transaction.created_at.desc())
+                .first()
+            )
+            if latest_transaction and 'заказ будет создан' in latest_transaction.description:
+                latest_transaction.description = f'Оплата заказа #{order.id}'
         
         # Create order items and update product quantities
         for item_data in order_items_data:
@@ -193,20 +232,98 @@ class OrderService:
         
         # Check permissions
         if not is_admin:
-            # Sellers can update orders with their products
+            # Sellers can only mark their own items as delivered
             seller_order_items = (
                 db.query(OrderItem)
                 .filter(OrderItem.order_id == order_id, OrderItem.seller_id == user_id)
-                .first()
+                .all()
             )
             
             if not seller_order_items:
                 raise ForbiddenException(detail="You don't have permission to update this order")
-        
-        # Update fields
-        update_data = order_data.model_dump(exclude_unset=True)
-        for field, value in update_data.items():
-            setattr(order, field, value)
+            
+            # Seller is marking their items as delivered
+            if order_data.status == OrderStatus.DELIVERED:
+                from app.db.models import Transaction, User
+                
+                # Mark only seller's items as delivered
+                total_amount = 0
+                for item in seller_order_items:
+                    if not item.is_delivered:  # Only if not already delivered
+                        item.is_delivered = True
+                        total_amount += item.price_at_purchase * item.quantity
+                
+                # Credit seller's balance only for their items
+                if total_amount > 0:
+                    seller = db.query(User).filter(User.id == user_id).first()
+                    if seller:
+                        seller.balance += total_amount
+                        
+                        # Create transaction record
+                        transaction = Transaction(
+                            user_id=user_id,
+                            amount=total_amount,
+                            type='credit',
+                            description=f'Оплата за товары в заказе #{order_id}',
+                            balance_after=seller.balance
+                        )
+                        db.add(transaction)
+                
+                # Check if all items in the order are delivered
+                all_items = db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+                if all(item.is_delivered for item in all_items):
+                    # All items delivered, mark entire order as delivered
+                    order.status = OrderStatus.DELIVERED
+                elif order.status == OrderStatus.PENDING:
+                    # Some items delivered, move to processing if still pending
+                    order.status = OrderStatus.PROCESSING
+            else:
+                # Non-delivery status updates (admin only for now)
+                raise ForbiddenException(detail="Sellers can only mark items as delivered")
+        else:
+            # Admin can update order status directly
+            old_status = order.status
+            new_status = order_data.status if hasattr(order_data, 'status') else None
+            
+            # Update fields
+            update_data = order_data.model_dump(exclude_unset=True)
+            for field, value in update_data.items():
+                setattr(order, field, value)
+            
+            # If admin marks as delivered, credit all sellers who haven't been paid
+            if new_status == OrderStatus.DELIVERED and old_status != OrderStatus.DELIVERED:
+                from app.db.models import Transaction, User
+                
+                order_items = db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+                
+                # Group items by seller
+                seller_earnings = {}
+                for item in order_items:
+                    if not item.is_delivered:  # Only unpaid items
+                        seller_id = item.seller_id
+                        amount = item.price_at_purchase * item.quantity
+                        
+                        if seller_id in seller_earnings:
+                            seller_earnings[seller_id] += amount
+                        else:
+                            seller_earnings[seller_id] = amount
+                        
+                        item.is_delivered = True
+                
+                # Credit each seller's balance
+                for seller_id, amount in seller_earnings.items():
+                    seller = db.query(User).filter(User.id == seller_id).first()
+                    if seller:
+                        seller.balance += amount
+                        
+                        transaction = Transaction(
+                            user_id=seller_id,
+                            amount=amount,
+                            type='credit',
+                            description=f'Оплата за заказ #{order_id}',
+                            balance_after=seller.balance
+                        )
+                        db.add(transaction)
         
         db.commit()
         db.refresh(order)

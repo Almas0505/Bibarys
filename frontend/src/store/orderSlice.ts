@@ -5,6 +5,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { orderService } from '../services';
 import { Order, PaginationParams } from '../types';
+import { logout } from './authSlice';
 
 interface OrderState {
   orders: Order[];
@@ -171,6 +172,19 @@ const orderSlice = createSlice({
     builder.addCase(cancelOrder.rejected, (state, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
+    });
+
+    // Clear orders on logout
+    builder.addCase(logout, (state) => {
+      state.orders = [];
+      state.currentOrder = null;
+      state.pagination = {
+        total: 0,
+        page: 1,
+        page_size: 20,
+        total_pages: 0,
+      };
+      state.error = null;
     });
   },
 });

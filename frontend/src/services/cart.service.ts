@@ -33,7 +33,7 @@ export const cartService = {
    * Add item to cart
    */
   addToCart: async (data: AddToCartData): Promise<CartItem> => {
-    const response = await api.post<CartItem>('/cart/items', data);
+    const response = await api.post<CartItem>('/cart', data);
     return response.data;
   },
 
@@ -41,7 +41,7 @@ export const cartService = {
    * Update cart item quantity
    */
   updateCartItem: async (itemId: number, data: UpdateCartItemData): Promise<CartItem> => {
-    const response = await api.put<CartItem>(`/cart/items/${itemId}`, data);
+    const response = await api.put<CartItem>(`/cart/${itemId}`, data);
     return response.data;
   },
 
@@ -49,7 +49,7 @@ export const cartService = {
    * Remove item from cart
    */
   removeFromCart: async (itemId: number): Promise<void> => {
-    await api.delete(`/cart/items/${itemId}`);
+    await api.delete(`/cart/${itemId}`);
   },
 
   /**

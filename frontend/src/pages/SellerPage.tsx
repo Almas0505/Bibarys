@@ -5,10 +5,11 @@
 import { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../hooks/redux';
 import { fetchProducts } from '../store/productSlice';
+import { updateBalance } from '../store/authSlice';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ProductForm from '../components/seller/ProductForm';
 import { formatPrice } from '../utils/helpers';
-import { PLACEHOLDER_IMAGE, PRODUCT_CATEGORIES } from '../utils/constants';
+import { PLACEHOLDER_IMAGE, PRODUCT_CATEGORIES_MAP } from '../utils/constants';
 import api from '../services/api';
 
 interface TopCustomer {
@@ -26,39 +27,48 @@ export default function SellerPage() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [editProduct, setEditProduct] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'products' | 'customers'>('products');
+  const [activeTab, setActiveTab] = useState<'products' | 'customers' | 'orders'>('products');
   const [topCustomers, setTopCustomers] = useState<TopCustomer[]>([]);
-  const [loadingCustomers, setLoadingCustomers] = useState(false);
-  const [stats, setStats] = useState({
+  const [loadingCustomers, setLoadingCustomers] = useState(false);  const [orders, setOrders] = useState<any[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [exportingPDF, setExportingPDF] = useState(false);  const [stats, setStats] = useState({
     totalProducts: 0,
     activeProducts: 0,
     totalOrders: 0,
     totalRevenue: 0,
   });
 
-  // Fetch seller's products
+  // Fetch seller's products and balance
   useEffect(() => {
     if (user?.id) {
-      loadSellerProducts();
+      dispatch(fetchProducts({})); // Load all products, filter on frontend
       loadSellerStats();
+      loadSellerBalance(); // Load actual balance
       if (activeTab === 'customers') {
         loadTopCustomers();
+      } else if (activeTab === 'orders') {
+        loadSellerOrders();
       }
     }
-  }, [user?.id, activeTab]);
+  }, [user?.id, activeTab, dispatch]);
 
-  const loadSellerProducts = async () => {
+  const loadSellerBalance = async () => {
     try {
-      const response = await api.get('/api/v1/seller/my-products');
-      // Dispatch to store if needed
+      // Only load balance for sellers
+      if (user?.role !== 'seller') {
+        return;
+      }
+      const response = await api.get('/wallet/balance');
+      const balance = response.data.balance || 0;
+      dispatch(updateBalance(balance));
     } catch (error) {
-      console.error('Error loading products:', error);
+      console.error('Error loading balance:', error);
     }
   };
 
   const loadSellerStats = async () => {
     try {
-      const response = await api.get('/api/v1/seller/stats');
+      const response = await api.get('/seller/stats');
       setStats(response.data);
     } catch (error) {
       console.error('Error loading stats:', error);
@@ -68,7 +78,7 @@ export default function SellerPage() {
   const loadTopCustomers = async () => {
     try {
       setLoadingCustomers(true);
-      const response = await api.get('/api/v1/seller/top-customers', {
+      const response = await api.get('/seller/top-customers', {
         params: { limit: 10 }
       });
       setTopCustomers(response.data);
@@ -79,19 +89,53 @@ export default function SellerPage() {
     }
   };
 
+  const loadSellerOrders = async () => {
+    try {
+      setLoadingOrders(true);
+      const response = await api.get('/seller/orders', {
+        params: { page: 1, page_size: 50 }
+      });
+      setOrders(response.data.items || []);
+    } catch (error) {
+      console.error('Error loading orders:', error);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const handleUpdateOrderStatus = async (orderId: number, newStatus: string) => {
+    try {
+      await api.put(`/orders/${orderId}/status`, {
+        status: newStatus
+      });
+      
+      if (newStatus === 'delivered') {
+        alert('Статус заказа обновлен! Деньги начислены на ваш кошелек.');
+        loadSellerBalance(); // Обновляем баланс после доставки
+      } else {
+        alert('Статус заказа обновлен!');
+      }
+      
+      loadSellerOrders();
+      loadSellerStats(); // Обновляем статистику
+    } catch (error: any) {
+      console.error('Error updating order status:', error);
+      alert(error.response?.data?.detail || 'Ошибка при обновлении статуса');
+    }
+  };
+
   const handleAddProduct = async (formData: FormData) => {
     try {
-      const data = Object.fromEntries(formData.entries());
-      await api.post('/api/v1/products', {
-        ...data,
-        price: Number(data.price),
-        quantity: Number(data.quantity),
-        image_urls: JSON.parse(data.image_urls as string),
+      await api.post('/products', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
       setShowAddModal(false);
-      loadSellerProducts();
+      dispatch(fetchProducts({}));
       alert('Товар успешно добавлен!');
     } catch (error: any) {
+      console.error('Error adding product:', error);
       alert(error.response?.data?.detail || 'Ошибка при добавлении товара');
     }
   };
@@ -100,17 +144,16 @@ export default function SellerPage() {
     if (!editProduct) return;
     
     try {
-      const data = Object.fromEntries(formData.entries());
-      await api.put(`/api/v1/products/${editProduct.id}`, {
-        ...data,
-        price: Number(data.price),
-        quantity: Number(data.quantity),
-        image_urls: JSON.parse(data.image_urls as string),
+      await api.put(`/products/${editProduct.id}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
       setEditProduct(null);
-      loadSellerProducts();
+      dispatch(fetchProducts({}));
       alert('Товар успешно обновлен!');
     } catch (error: any) {
+      console.error('Error updating product:', error);
       alert(error.response?.data?.detail || 'Ошибка при обновлении товара');
     }
   };
@@ -121,8 +164,8 @@ export default function SellerPage() {
     }
 
     try {
-      await api.delete(`/api/v1/products/${productId}`);
-      loadSellerProducts();
+      await api.delete(`/products/${productId}`);
+      dispatch(fetchProducts({}));
       alert('Товар успешно удален!');
     } catch (error: any) {
       alert(error.response?.data?.detail || 'Ошибка при удалении товара');
@@ -131,12 +174,39 @@ export default function SellerPage() {
 
   const handleToggleActive = async (productId: number, isActive: boolean) => {
     try {
-      await api.patch(`/api/v1/products/${productId}/toggle-active`, {
+      await api.patch(`/products/${productId}/toggle-active`, {
         is_active: !isActive,
       });
-      loadSellerProducts();
+      dispatch(fetchProducts({}));
     } catch (error) {
       alert('Ошибка при изменении статуса товара');
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setExportingPDF(true);
+      
+      const response = await api.get('/seller/export-pdf', {
+        responseType: 'blob',
+      });
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `seller_report_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      alert('PDF успешно экспортирован!');
+    } catch (error: any) {
+      console.error('Error exporting PDF:', error);
+      alert(error.response?.data?.detail || 'Ошибка при экспорте PDF');
+    } finally {
+      setExportingPDF(false);
     }
   };
 
@@ -145,21 +215,44 @@ export default function SellerPage() {
   }
 
   const sellerProducts = products.filter(p => p.seller_id === user?.id);
-  const sellerProducts = products.filter(p => p.seller_id === user?.id);
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Панель продавца</h1>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-semibold flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Добавить товар
-        </button>
+      {/* Welcome Header with Balance */}
+      <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white rounded-lg shadow-lg p-6 mb-8">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">👋 Привет, {user?.first_name}!</h1>
+            <p className="text-primary-100">Панель управления продавца</p>
+          </div>
+          <div className="text-right flex items-center gap-4">
+            <div>
+              <p className="text-sm text-primary-100">Ваш баланс</p>
+              <p className="text-4xl font-bold">{user?.balance ? `${user.balance.toLocaleString()}₸` : '0₸'}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="px-6 py-2 bg-white text-primary-600 rounded-lg hover:bg-primary-50 font-semibold flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Добавить товар
+              </button>
+              <button
+                onClick={handleExportPDF}
+                disabled={exportingPDF}
+                className="px-6 py-2 bg-white text-primary-600 rounded-lg hover:bg-primary-50 font-semibold flex items-center gap-2 disabled:opacity-50"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                {exportingPDF ? 'Экспорт...' : 'Экспорт в PDF'}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Dashboard Stats */}
@@ -252,6 +345,16 @@ export default function SellerPage() {
             Мои товары
           </button>
           <button
+            onClick={() => setActiveTab('orders')}
+            className={`pb-4 px-2 font-semibold ${
+              activeTab === 'orders'
+                ? 'border-b-2 border-primary-600 text-primary-600'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Заказы
+          </button>
+          <button
             onClick={() => setActiveTab('customers')}
             className={`pb-4 px-2 font-semibold ${
               activeTab === 'customers'
@@ -263,6 +366,113 @@ export default function SellerPage() {
           </button>
         </nav>
       </div>
+
+      {/* Orders Tab */}
+      {activeTab === 'orders' && (
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold">Заказы с моими товарами</h2>
+            <p className="text-sm text-gray-600 mt-1">Управляйте статусами заказов</p>
+          </div>
+
+          {loadingOrders ? (
+            <div className="p-12 text-center">
+              <div className="text-gray-500">Загрузка заказов...</div>
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="text-gray-400 mb-4">
+                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">Пока нет заказов</h3>
+              <p className="text-gray-600">Заказы с вашими товарами появятся здесь</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {orders.map((order: any) => {
+                const sellerItems = order.items.filter((item: any) => item.seller_id === user?.id);
+                const sellerTotal = sellerItems.reduce((sum: number, item: any) => 
+                  sum + (item.price_at_purchase * item.quantity), 0
+                );
+                const allItemsDelivered = sellerItems.every((item: any) => item.is_delivered);
+                const someItemsDelivered = sellerItems.some((item: any) => item.is_delivered);
+
+                return (
+                  <div key={order.id} className="p-6 hover:bg-gray-50">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="text-lg font-bold">Заказ #{order.id}</h3>
+                          <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                            allItemsDelivered ? 'bg-green-100 text-green-800' :
+                            someItemsDelivered ? 'bg-blue-100 text-blue-800' :
+                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            order.status === 'processing' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {allItemsDelivered ? 'Ваши товары доставлены' :
+                             someItemsDelivered ? 'Частично доставлено' :
+                             order.status === 'pending' ? 'Ожидает' :
+                             order.status === 'processing' ? 'В обработке' :
+                             order.status === 'cancelled' ? 'Отменен' :
+                             'Ожидает'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">
+                          {order.delivery_method === 'pickup' ? '🏪 Самовывоз' : '🚚 Доставка'} • 
+                          {' '}{new Date(order.created_at).toLocaleDateString('ru-RU')}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-600">{allItemsDelivered ? 'Получено' : 'Ваш доход'}</p>
+                        <p className={`text-xl font-bold ${allItemsDelivered ? 'text-green-600' : 'text-blue-600'}`}>
+                          {formatPrice(sellerTotal)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Seller's items in this order */}
+                    <div className="mb-4 space-y-2">
+                      {sellerItems.map((item: any) => (
+                        <div key={item.id} className={`flex justify-between items-center text-sm p-3 rounded ${item.is_delivered ? 'bg-green-50 border border-green-200' : 'bg-gray-50'}`}>
+                          <div className="flex items-center gap-2">
+                            {item.is_delivered && <span className="text-green-600 font-bold">✓</span>}
+                            <span className={item.is_delivered ? 'text-green-800' : ''}>
+                              {item.product?.name || `Товар #${item.product_id}`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-gray-600 ${item.is_delivered ? 'text-green-700' : ''}`}>
+                              {item.quantity} шт. × {formatPrice(item.price_at_purchase)}
+                            </span>
+                            {item.is_delivered && (
+                              <span className="text-xs px-2 py-1 bg-green-600 text-white rounded-full">Оплачено</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Status update buttons */}
+                    {!allItemsDelivered && order.status !== 'cancelled' && (
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => handleUpdateOrderStatus(order.id, 'delivered')}
+                          className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold shadow-md"
+                        >
+                          ✓ {order.delivery_method === 'pickup' ? 'Отметить как выданные' : 'Отметить как доставленные'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Top Customers Tab */}
       {activeTab === 'customers' && (
@@ -339,11 +549,12 @@ export default function SellerPage() {
 
       {/* Products Table */}
       {activeTab === 'products' && (
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold">Мои товары</h2>
-        </div>
+        <>
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-bold">Мои товары</h2>
+          </div>
 
-        {sellerProducts.length === 0 ? (
+          {sellerProducts.length === 0 ? (
           <div className="p-12 text-center">
             <div className="text-gray-400 mb-4">
               <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -381,7 +592,10 @@ export default function SellerPage() {
                         <img
                           src={product.image_urls[0] || PLACEHOLDER_IMAGE}
                           alt={product.name}
-                          className="w-12 h-12 rounded object-cover"
+                          className="w-16 h-16 rounded-lg object-cover border-2 border-gray-200 shadow-sm"
+                          onError={(e) => {
+                            e.currentTarget.src = PLACEHOLDER_IMAGE;
+                          }}
                         />
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900">{product.name}</div>
@@ -391,7 +605,7 @@ export default function SellerPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-600">
-                        {PRODUCT_CATEGORIES[product.category]}
+                        {PRODUCT_CATEGORIES_MAP[product.category] || product.category}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -449,7 +663,7 @@ export default function SellerPage() {
             </table>
           </div>
         )}
-      </div>
+        </>
       )}
 
       {/* Add Product Modal */}

@@ -50,7 +50,8 @@ export const reviewService = {
    * Create review
    */
   createReview: async (data: CreateReviewData): Promise<Review> => {
-    const response = await api.post<Review>('/reviews', data);
+    const { product_id, ...reviewData } = data;
+    const response = await api.post<Review>(`/reviews/product/${product_id}`, reviewData);
     return response.data;
   },
 

@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build: ./backend
+    container_name: ecommerce-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend-db:/app/data
+    environment:
+      - DEBUG=True
+      - DATABASE_URL=sqlite:///./data/ecommerce.db
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  # Frontend (will be added later)
+  # frontend:
+  #   build: ./frontend
+  #   container_name: ecommerce-frontend
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   environment:
+  #     - REACT_APP_API_URL=http://localhost:8000
+  #   networks:
+  #     - ecommerce-network
+  #   depends_on:
+  #     - backend
+  #   restart: unless-stopped
+
+volumes:
+  backend-db:
+
+networks:
+  ecommerce-network:
+    driver: bridge

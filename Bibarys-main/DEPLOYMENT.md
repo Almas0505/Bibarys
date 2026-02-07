@@ -1,6 +1,6 @@
 # 🚀 Production Deployment Guide
 
-Complete guide for deploying the Bibarys E-Commerce platform to production.
+Complete guide for deploying the SaudaFlow platform to production.
 
 ## 📋 Table of Contents
 
@@ -49,7 +49,7 @@ Edit `.env.production` with production values:
 
 ```env
 # Application
-APP_NAME=Bibarys E-Commerce
+APP_NAME=SaudaFlow
 APP_VERSION=1.0.0
 DEBUG=False
 HOST=0.0.0.0
@@ -189,7 +189,7 @@ Create `/etc/systemd/system/bibarys-backend.service`:
 
 ```ini
 [Unit]
-Description=Bibarys E-Commerce Backend
+Description=SaudaFlow Backend
 After=network.target postgresql.service
 
 [Service]

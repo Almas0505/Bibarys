@@ -202,7 +202,7 @@ pip install -r requirements.txt
 
 ```env
 # App
-APP_NAME=Bibarys E-Commerce
+APP_NAME=SaudaFlow
 DEBUG=true
 API_V1_PREFIX=/api/v1
 
@@ -273,7 +273,7 @@ npm install
 
 ```env
 VITE_API_BASE_URL=http://localhost:8000/api/v1
-VITE_APP_NAME=Bibarys Shop
+VITE_APP_NAME=SaudaFlow
 ```
 
 3. Сохраните: **Ctrl + S**

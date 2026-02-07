@@ -15,7 +15,7 @@ if sys.version_info >= (3, 13):
         typing._TypingBase = type
 
 print("=" * 60)
-print("🚀 Starting E-Commerce Backend Server")
+print("🚀 Starting SaudaFlow Backend Server")
 print("=" * 60)
 print(f"Python Version: {sys.version}")
 print(f"Working Directory: {os.getcwd()}")

@@ -1,4 +1,4 @@
-# E-Commerce Shop - Frontend
+# SaudaFlow - Frontend
 
 React + TypeScript фронтенд для интернет-магазина.
 
@@ -48,7 +48,7 @@ npm install
 2. Создайте файл `.env`:
 ```env
 VITE_API_BASE_URL=http://localhost:8000/api/v1
-VITE_APP_NAME=E-Commerce Shop
+VITE_APP_NAME=SaudaFlow
 ```
 
 ## Запуск
@@ -129,7 +129,7 @@ Store разделён на следующие slices:
 ## Переменные окружения
 
 - `VITE_API_BASE_URL` - URL backend API (по умолчанию: http://localhost:8000/api/v1)
-- `VITE_APP_NAME` - Название приложения (по умолчанию: E-Commerce Shop)
+- `VITE_APP_NAME` - Название приложения (по умолчанию: SaudaFlow)
 
 ## Скрипты
 

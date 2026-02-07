@@ -29,7 +29,7 @@ export default function AdminPage() {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `bibarys_analytics_${new Date().toISOString().split('T')[0]}.pdf`;
+      link.download = `saudaflow_analytics_${new Date().toISOString().split('T')[0]}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -51,7 +51,7 @@ export default function AdminPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold mb-2">👑 Добро пожаловать, Администратор!</h1>
-            <p className="text-purple-100">Полный контроль над платформой Bibarys</p>
+            <p className="text-purple-100">Полный контроль над платформой SaudaFlow</p>
           </div>
           {activeTab === 'dashboard' && (
             <Button

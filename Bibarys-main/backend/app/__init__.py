@@ -1,5 +1,5 @@
 """
-E-Commerce Backend Application
+SaudaFlow Backend Application
 FastAPI-based REST API with JWT authentication
 """
 

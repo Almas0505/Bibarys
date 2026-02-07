@@ -5,13 +5,15 @@ All settings loaded from environment variables
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from typing import Optional
+import os
+from pathlib import Path
 
 
 class Settings(BaseSettings):
     """Application settings with environment variables"""
     
     # Application
-    APP_NAME: str = "E-Commerce API"
+    APP_NAME: str = "SaudaFlow API"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     
@@ -20,7 +22,8 @@ class Settings(BaseSettings):
     PORT: int = 8000
     
     # Database
-    DATABASE_URL: str = "sqlite:///./ecommerce.db"
+    # Используем АБСОЛЮТНЫЙ путь к базе данных, чтобы она всегда была в одном месте
+    DATABASE_URL: str = f"sqlite:///{Path(__file__).parent.parent / 'ecommerce.db'}"
     # For PostgreSQL: "postgresql+asyncpg://user:password@localhost:5432/ecommerce"
     
     # JWT

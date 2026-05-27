@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs wc *)",
+      "Bash(grep -rn \"\\\\.\\\\./\\\\|\\\\.\\\\\\\\.\\\\\\\\\\\\\\\\\" /c/Users/Пользователь/Downloads/Bibarys-main/Bibarys-main/backend/app --include=\"*.py\")",
+      "Bash(python -c \"import sqlite3; c=sqlite3.connect\\('ecommerce.db'\\); cur=c.cursor\\(\\); cur.execute\\('SELECT name FROM sqlite_master WHERE type=\\\\\"table\\\\\"'\\); print\\('TABLES:', [r[0] for r in cur.fetchall\\(\\)]\\); cur.execute\\('SELECT COUNT\\(*\\) FROM users'\\); print\\('USERS:', cur.fetchone\\(\\)[0]\\); cur.execute\\('SELECT id, email, role FROM users LIMIT 10'\\); [print\\(' ', r\\) for r in cur.fetchall\\(\\)]; cur.execute\\('SELECT COUNT\\(*\\) FROM products'\\); print\\('PRODUCTS:', cur.fetchone\\(\\)[0]\\); cur.execute\\('SELECT COUNT\\(*\\) FROM orders'\\); print\\('ORDERS:', cur.fetchone\\(\\)[0]\\); c.close\\(\\)\")",
+      "Bash(python -c \"import sqlite3; c=sqlite3.connect\\('ecommerce.db'\\); cur=c.cursor\\(\\); cur.execute\\('SELECT id, name, price, quantity, category, seller_id, is_active, created_at FROM products'\\); rows=cur.fetchall\\(\\); print\\('TOTAL:', len\\(rows\\)\\); [print\\(r\\) for r in rows]\")",
+      "Bash(python -c \"from app.config import settings; print\\('DATABASE_URL:', settings.DATABASE_URL\\)\")",
+      "Bash(git check-ignore *)",
+      "Bash(python -c \"import sqlite3; c=sqlite3.connect\\('ecommerce.db'\\); cur=c.cursor\\(\\); cur.execute\\('SELECT id, email, role FROM users'\\); [print\\(r\\) for r in cur.fetchall\\(\\)]\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('seed_products.py', encoding='utf-8'\\).read\\(\\)\\); print\\('syntax OK'\\)\")"
+    ]
+  }
+}
